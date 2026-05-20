@@ -163,6 +163,54 @@ export async function getPdfConversionJob(jobId: string): Promise<PdfConvertJob>
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Poll Render/Python servis dok job ne završi, pa preuzmi .xlsx. */
+export async function convertPdfRemotely(
+  file: Buffer,
+  fileName: string,
+  options: { exportMode?: ExportMode; baseName: string },
+): Promise<{
+  buffer: Buffer;
+  fileName: string;
+  rowCount: number | null;
+  sheetCount: number | null;
+}> {
+  const { timeoutMs } = getConverterConfig();
+  const exportMode = options.exportMode ?? "multiple_sheets";
+  const { jobId } = await startPdfConversion(file, fileName, {
+    exportMode,
+    baseName: options.baseName,
+  });
+
+  const deadline = Date.now() + timeoutMs;
+  const pollMs = 2000;
+
+  while (Date.now() < deadline) {
+    const job = await getPdfConversionJob(jobId);
+
+    if (job.status === "completed") {
+      const downloaded = await downloadPdfConversionExcel(jobId);
+      return {
+        buffer: downloaded.buffer,
+        fileName: downloaded.fileName,
+        rowCount: job.rowCount,
+        sheetCount: job.sheetCount,
+      };
+    }
+
+    if (job.status === "failed") {
+      throw new PdfConverterError(job.error ?? "Konverzija nije uspela", 500);
+    }
+
+    await sleep(pollMs);
+  }
+
+  throw new PdfConverterError("Konverzija je prekoračila vreme čekanja", 408);
+}
+
 export async function downloadPdfConversionExcel(jobId: string): Promise<{ buffer: Buffer; fileName: string }> {
   const { baseUrl, apiKey, timeoutMs } = getConverterConfig();
   const controller = new AbortController();

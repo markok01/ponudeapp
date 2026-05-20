@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   checkPdfConverterHealth,
+  convertPdfRemotely,
   PdfConverterError,
   startPdfConversion,
 } from "@/services/pdf-converter-client";
@@ -9,6 +10,8 @@ import type { ExportMode } from "@/types/pdf-converter";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+const isVercel = Boolean(process.env.VERCEL);
 
 export async function GET() {
   const health = await checkPdfConverterHealth();
@@ -37,32 +40,59 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    try {
-      const { excelBuffer, fileName, productCount, sheetCount } =
-        await convertHorecaPdfToExcel(buffer, baseName);
+    const health = await checkPdfConverterHealth();
 
-      return NextResponse.json({
-        jobId: `horeca-${Date.now()}`,
-        message: "HoReCa konverzija završena",
-        sync: true,
-        status: "completed",
-        progress: 100,
-        fileName,
-        rowCount: productCount,
-        sheetCount,
-        excelBase64: excelBuffer.toString("base64"),
-        format: "horeca",
-      });
-    } catch (horecaError) {
-      console.warn("HoReCa local parser:", horecaError);
+    if (health) {
+      try {
+        const { buffer: excelBuffer, fileName, rowCount, sheetCount } =
+          await convertPdfRemotely(buffer, file.name, { exportMode, baseName });
+
+        return NextResponse.json({
+          jobId: `remote-${Date.now()}`,
+          message: "Konverzija završena",
+          sync: true,
+          status: "completed",
+          progress: 100,
+          fileName,
+          rowCount,
+          sheetCount,
+          excelBase64: excelBuffer.toString("base64"),
+          format: "horeca",
+        });
+      } catch (remoteError) {
+        if (remoteError instanceof PdfConverterError) throw remoteError;
+        console.warn("Remote PDF converter:", remoteError);
+      }
     }
 
-    const health = await checkPdfConverterHealth();
+    if (!isVercel) {
+      try {
+        const { excelBuffer, fileName, productCount, sheetCount } =
+          await convertHorecaPdfToExcel(buffer, baseName);
+
+        return NextResponse.json({
+          jobId: `horeca-${Date.now()}`,
+          message: "HoReCa konverzija završena",
+          sync: true,
+          status: "completed",
+          progress: 100,
+          fileName,
+          rowCount: productCount,
+          sheetCount,
+          excelBase64: excelBuffer.toString("base64"),
+          format: "horeca",
+        });
+      } catch (horecaError) {
+        console.warn("HoReCa local parser:", horecaError);
+      }
+    }
+
     if (!health) {
       return NextResponse.json(
         {
-          error:
-            "Za generičke PDF-ove pokrenite: docker compose up pdf-converter. Za HoReCa cenovnik koristite fajl sa 'HoReCa' ili 'cenovnik' u nazivu.",
+          error: isVercel
+            ? "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu."
+            : "Za generičke PDF-ove pokrenite: docker compose up pdf-converter.",
         },
         { status: 503 },
       );
