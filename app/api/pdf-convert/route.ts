@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   checkPdfConverterHealth,
-  convertPdfRemotely,
   PdfConverterError,
   startPdfConversion,
 } from "@/services/pdf-converter-client";
@@ -43,26 +42,8 @@ export async function POST(request: NextRequest) {
     const health = await checkPdfConverterHealth();
 
     if (health) {
-      try {
-        const { buffer: excelBuffer, fileName, rowCount, sheetCount } =
-          await convertPdfRemotely(buffer, file.name, { exportMode, baseName });
-
-        return NextResponse.json({
-          jobId: `remote-${Date.now()}`,
-          message: "Konverzija završena",
-          sync: true,
-          status: "completed",
-          progress: 100,
-          fileName,
-          rowCount,
-          sheetCount,
-          excelBase64: excelBuffer.toString("base64"),
-          format: "horeca",
-        });
-      } catch (remoteError) {
-        if (remoteError instanceof PdfConverterError) throw remoteError;
-        console.warn("Remote PDF converter:", remoteError);
-      }
+      const result = await startPdfConversion(buffer, file.name, { exportMode, baseName });
+      return NextResponse.json(result);
     }
 
     if (!isVercel) {
@@ -87,19 +68,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!health) {
-      return NextResponse.json(
-        {
-          error: isVercel
-            ? "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu."
-            : "Za generičke PDF-ove pokrenite: docker compose up pdf-converter.",
-        },
-        { status: 503 },
-      );
-    }
-
-    const result = await startPdfConversion(buffer, file.name, { exportMode, baseName });
-    return NextResponse.json(result);
+    return NextResponse.json(
+      {
+        error: isVercel
+          ? "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu."
+          : "Za generičke PDF-ove pokrenite: docker compose up pdf-converter.",
+      },
+      { status: 503 },
+    );
   } catch (error) {
     console.error("POST /api/pdf-convert", error);
     if (error instanceof PdfConverterError) {

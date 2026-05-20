@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   checkPdfConverterHealth,
-  convertPdfRemotely,
   PdfConverterError,
+  startPdfConversion,
 } from "@/services/pdf-converter-client";
-import { convertHorecaPdfToExcel, isLikelyHorecaFile } from "@/utils/horeca-pdf-convert";
+import { convertHorecaPdfToExcel } from "@/utils/horeca-pdf-convert";
 import { convertPdfToExcel } from "@/utils/price-list-parse";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 const isVercel = Boolean(process.env.VERCEL);
 
-/** PDF → Excel (upload stranica). Na Vercelu koristi Render; lokalno Python HoReCa pa Render pa jednostavan parser. */
+/**
+ * PDF → Excel (upload). Na Vercelu odmah vraća jobId (bez čekanja Rendera u jednom requestu).
+ * Klijent treba da polluje /api/pdf-convert/[jobId] — v. lib/client-pdf-convert.ts
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -32,23 +35,15 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const baseName = listName || file.name.replace(/\.pdf$/i, "");
-    const likelyHoreca = isLikelyHorecaFile(file.name) || isLikelyHorecaFile(baseName);
 
     const remoteHealthy = await checkPdfConverterHealth();
 
     if (remoteHealthy) {
-      const { buffer: excelBuffer, fileName, rowCount } = await convertPdfRemotely(
-        buffer,
-        file.name,
-        { baseName, exportMode: "multiple_sheets" },
-      );
-
-      return NextResponse.json({
-        rowCount: rowCount ?? 0,
-        excelBase64: excelBuffer.toString("base64"),
-        fileName,
-        format: likelyHoreca ? "horeca" : "remote",
+      const result = await startPdfConversion(buffer, file.name, {
+        exportMode: "multiple_sheets",
+        baseName,
       });
+      return NextResponse.json({ async: true, jobId: result.jobId, message: result.message });
     }
 
     if (!isVercel) {
@@ -83,7 +78,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: isVercel
-          ? "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu i da Render servis radi."
+          ? "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu."
           : "PDF converter nije dostupan. Pokrenite: docker compose up pdf-converter",
       },
       { status: 503 },

@@ -22,26 +22,15 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { convertPdfOnServer, downloadExcelBlob } from "@/lib/client-pdf-convert";
 import type { ImportPreviewDiff } from "@/types";
-
-function downloadBase64Excel(base64: string, filename: string) {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const blob = new Blob([bytes], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 export default function UploadPage() {
   const router = useRouter();
 
   const [convertFile, setConvertFile] = useState<File | null>(null);
   const [converting, setConverting] = useState(false);
+  const [convertProgress, setConvertProgress] = useState(0);
 
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importName, setImportName] = useState("Cenovnik");
@@ -56,22 +45,20 @@ export default function UploadPage() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", convertFile);
-    formData.append("name", "cenovnik");
-
     setConverting(true);
+    setConvertProgress(0);
     try {
-      const res = await fetch("/api/convert-pdf", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      downloadBase64Excel(data.excelBase64, data.fileName);
-      toast.success(`Excel preuzet: ${data.rowCount} stavki.`);
+      const { blob, fileName } = await convertPdfOnServer(convertFile, {
+        baseName: "cenovnik",
+        onProgress: (p) => setConvertProgress(p.progress),
+      });
+      downloadExcelBlob(blob, fileName);
+      toast.success("Excel preuzet.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Konverzija nije uspela");
     } finally {
       setConverting(false);
+      setConvertProgress(0);
     }
   }
 
@@ -242,9 +229,13 @@ export default function UploadPage() {
                   onChange={(e) => setConvertFile(e.target.files?.[0] ?? null)}
                 />
               </div>
-              <Button type="submit" variant="outline" disabled={converting}>
+              <Button type="submit" variant="outline" disabled={converting} className="min-w-[10rem]">
                 {converting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Preuzmi Excel
+                {converting
+                  ? convertProgress > 0
+                    ? `Konverzija ${convertProgress}%`
+                    : "Konverzija…"
+                  : "Preuzmi Excel"}
               </Button>
             </form>
           </CardContent>
