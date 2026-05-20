@@ -113,9 +113,9 @@ export function AdminUsersPanel() {
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-sm text-muted-foreground">
-          Samo ovi nalozi mogu da se uloguju. Nema javne registracije — limit
-          naloga kontroliše <code className="text-xs">MAX_USERS</code> u env
-          (podrazumevano 2).
+          Samo ovi nalozi mogu da se uloguju. Nema javne registracije. Jedan nalog
+          (isti email/lozinka) može na više uređaja istovremeno. Limit naloga:{" "}
+          <code className="text-xs">MAX_USERS</code> u env (podrazumevano 3).
         </p>
 
         <ul className="divide-y divide-border rounded-lg border border-border">

@@ -56,7 +56,7 @@ async function main() {
   const password = passwordArg;
   const name = nameArg?.trim() || email.split("@")[0];
   const role = roleArg === "admin" ? "admin" : "user";
-  const maxUsers = Number(process.env.MAX_USERS ?? 2);
+  const maxUsers = Number(process.env.MAX_USERS ?? 3);
 
   if (password.length < 8) {
     console.error("Lozinka mora imati najmanje 8 karaktera.");

@@ -38,8 +38,8 @@ function mapUser(row: UserRow): AppUser {
 
 export function getMaxUsers(): number {
   const raw = process.env.MAX_USERS?.trim();
-  const n = raw ? Number(raw) : 2;
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 2;
+  const n = raw ? Number(raw) : 3;
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
 }
 
 export async function countUsers(): Promise<number> {
