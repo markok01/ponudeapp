@@ -103,6 +103,15 @@ function env(key: string): string | undefined {
   return process.env[`MYSQL_${key}`];
 }
 
+/** Override kad Shared MYSQL_DATABASE=defaultdb (Budget) — dodaj na Vercel Project. */
+export function resolveMysqlDatabase(): string {
+  return (
+    process.env.PONUDEAPP_DATABASE?.trim() ||
+    env("DATABASE")?.trim() ||
+    "ponudaapp"
+  );
+}
+
 function envBool(key: string): boolean {
   const v = env(key);
   return v === "true" || v === "1";
@@ -137,7 +146,7 @@ function buildPoolOptions(): PoolOptions {
 
   const host = env("HOST");
   const user = env("USER");
-  const database = env("DATABASE");
+  const database = resolveMysqlDatabase();
   const password = env("PASSWORD") ?? "";
 
   if (!host || !user || !database) {

@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Tabela users ne postoji. Pokrenite create-user lokalno ili redeploy.",
+            "Pogrešna baza (verovatno defaultdb umesto ponudaapp). Na Vercel dodaj PONUDEAPP_DATABASE=ponudaapp u Project env.",
         },
         { status: 500 },
       );
