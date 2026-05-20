@@ -85,9 +85,12 @@ export interface QuoteLineDraft {
   qty: number;
 }
 
+export type AppLocale = "sr" | "en";
+
 export interface AppSettings {
   logoDataUrl: string | null;
   companyName: string;
+  locale: AppLocale;
 }
 
 export interface PriceListRecord {

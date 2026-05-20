@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 interface PdfDropZoneProps {
@@ -11,6 +12,7 @@ interface PdfDropZoneProps {
 }
 
 export function PdfDropZone({ file, onFileSelect, disabled }: PdfDropZoneProps) {
+  const t = useTranslations();
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -71,16 +73,14 @@ export function PdfDropZone({ file, onFileSelect, disabled }: PdfDropZoneProps) 
         <>
           <p className="text-sm font-semibold text-foreground">{file.name}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {(file.size / 1024 / 1024).toFixed(2)} MB · Kliknite za promenu
+            {(file.size / 1024 / 1024).toFixed(2)} MB · {t("pdfToExcel.dropChange")}
           </p>
         </>
       ) : (
         <>
-          <p className="text-sm font-semibold text-foreground">
-            Prevucite PDF ovde ili kliknite za upload
-          </p>
+          <p className="text-sm font-semibold text-foreground">{t("pdfToExcel.dropTitle")}</p>
           <p className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
-            Fakture, ponude, cenovnici, bankovni izvodi — više stranica i tabela
+            {t("pdfToExcel.dropHint")}
           </p>
         </>
       )}

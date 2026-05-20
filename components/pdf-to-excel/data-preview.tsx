@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ConversionPreview } from "@/types/pdf-converter";
 
@@ -18,23 +19,24 @@ interface DataPreviewProps {
 }
 
 export function DataPreview({ preview }: DataPreviewProps) {
+  const t = useTranslations();
   const [expanded, setExpanded] = useState<number>(0);
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
       <div className="flex flex-wrap gap-3 text-sm">
         <span className="rounded-lg bg-muted px-3 py-1.5">
-          Tip: <strong className="capitalize">{preview.pdfType}</strong>
+          {t("pdfToExcel.type")}: <strong className="capitalize">{preview.pdfType}</strong>
         </span>
         <span className="rounded-lg bg-muted px-3 py-1.5">
-          Stranice: <strong>{preview.pageCount}</strong>
+          {t("pdfToExcel.pages")}: <strong>{preview.pageCount}</strong>
         </span>
         <span className="rounded-lg bg-muted px-3 py-1.5">
-          Tabele: <strong>{preview.tableCount}</strong>
+          {t("pdfToExcel.tables")}: <strong>{preview.tableCount}</strong>
         </span>
         {preview.strategiesUsed.length > 0 && (
           <span className="rounded-lg bg-muted px-3 py-1.5">
-            Strategije: <strong>{preview.strategiesUsed.join(", ")}</strong>
+            {t("pdfToExcel.strategies")}: <strong>{preview.strategiesUsed.join(", ")}</strong>
           </span>
         )}
       </div>
@@ -56,7 +58,10 @@ export function DataPreview({ preview }: DataPreviewProps) {
                   <Table2 className="h-4 w-4 text-primary" />
                   {table.name}
                   <span className="text-muted-foreground font-normal">
-                    (str. {table.page} · {table.rowCount} redova)
+                    {t("pdfToExcel.pageRows", {
+                      page: table.page,
+                      rows: table.rowCount,
+                    })}
                   </span>
                 </span>
                 <ChevronDown
@@ -90,7 +95,7 @@ export function DataPreview({ preview }: DataPreviewProps) {
                   </Table>
                   {table.rowCount > 15 && (
                     <p className="px-2 py-1 text-xs text-muted-foreground">
-                      Prikazano 15 od {table.rowCount} redova
+                      {t("pdfToExcel.previewLimit", { total: table.rowCount })}
                     </p>
                   )}
                 </div>

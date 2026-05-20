@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 interface UserRow {
   id: number;
@@ -24,6 +25,7 @@ interface UserRow {
 }
 
 export function AdminUsersPanel() {
+  const t = useTranslations();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,11 +48,11 @@ export function AdminUsersPanel() {
       if (!res.ok) throw new Error(data.error);
       setUsers(data);
     } catch {
-      toast.error("Greška pri učitavanju korisnika");
+      toast.error(t("settings.usersLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -81,11 +83,11 @@ export function AdminUsersPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(`Nalog kreiran: ${data.email}`);
+      toast.success(t("settings.accountCreated", { email: data.email }));
       setForm({ email: "", password: "", name: "", role: "user" });
       void load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Greška");
+      toast.error(error instanceof Error ? error.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -96,10 +98,10 @@ export function AdminUsersPanel() {
       const res = await fetch(`/api/admin/users?id=${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("Nalog deaktiviran — korisnik je odmah izbačen iz aplikacije");
+      toast.success(t("settings.accountDeactivated"));
       void load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Greška");
+      toast.error(error instanceof Error ? error.message : t("common.error"));
     }
   }
 
@@ -108,15 +110,11 @@ export function AdminUsersPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Users className="h-4 w-4" />
-          Korisnici (whitelist)
+          {t("settings.usersTitle")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <p className="text-sm text-muted-foreground">
-          Samo ovi nalozi mogu da se uloguju. Nema javne registracije. Jedan nalog
-          (isti email/lozinka) može na više uređaja istovremeno. Limit naloga:{" "}
-          <code className="text-xs">MAX_USERS</code> u env (podrazumevano 3).
-        </p>
+        <p className="text-sm text-muted-foreground">{t("settings.usersHelp")}</p>
 
         <ul className="divide-y divide-border rounded-lg border border-border">
           {users.map((u) => (
@@ -128,7 +126,7 @@ export function AdminUsersPanel() {
                 <p className="font-medium">{u.name || u.email}</p>
                 <p className="text-xs text-muted-foreground">
                   {u.email} · {u.role}
-                  {!u.active ? " · deaktiviran" : ""}
+                  {!u.active ? ` · ${t("settings.deactivated")}` : ""}
                 </p>
               </div>
               {u.active ? (
@@ -139,7 +137,7 @@ export function AdminUsersPanel() {
                   className="text-destructive"
                   onClick={() => void deactivate(u.id)}
                 >
-                  Deaktiviraj
+                  {t("settings.deactivate")}
                 </Button>
               ) : null}
             </li>
@@ -149,11 +147,11 @@ export function AdminUsersPanel() {
         <form onSubmit={(e) => void handleCreate(e)} className="space-y-4 border-t pt-4">
           <p className="flex items-center gap-2 text-sm font-medium">
             <UserPlus className="h-4 w-4" />
-            Dodaj korisnika
+            {t("settings.addUser")}
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="admin-email">Email</Label>
+              <Label htmlFor="admin-email">{t("auth.email")}</Label>
               <Input
                 id="admin-email"
                 type="email"
@@ -163,7 +161,7 @@ export function AdminUsersPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="admin-name">Ime</Label>
+              <Label htmlFor="admin-name">{t("settings.userName")}</Label>
               <Input
                 id="admin-name"
                 value={form.name}
@@ -171,7 +169,7 @@ export function AdminUsersPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Uloga</Label>
+              <Label>{t("settings.userRole")}</Label>
               <Select
                 value={form.role}
                 onValueChange={(v) => setForm({ ...form, role: v })}
@@ -180,13 +178,13 @@ export function AdminUsersPanel() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">Korisnik</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="user">{t("settings.userRoleUser")}</SelectItem>
+                  <SelectItem value="admin">{t("settings.userRoleAdmin")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="admin-password">Lozinka (min. 8)</Label>
+              <Label htmlFor="admin-password">{t("settings.userPassword")}</Label>
               <Input
                 id="admin-password"
                 type="password"
@@ -199,7 +197,7 @@ export function AdminUsersPanel() {
           </div>
           <Button type="submit" disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Kreiraj nalog
+            {t("settings.createAccount")}
           </Button>
         </form>
       </CardContent>

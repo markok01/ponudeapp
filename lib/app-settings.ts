@@ -1,3 +1,4 @@
+import { normalizeLocale } from "@/lib/i18n/types";
 import type { AppSettings } from "@/types";
 
 const STORAGE_KEY = "ponudeapp-settings";
@@ -5,6 +6,7 @@ const STORAGE_KEY = "ponudeapp-settings";
 const DEFAULTS: AppSettings = {
   logoDataUrl: null,
   companyName: "",
+  locale: "sr",
 };
 
 function canUseStorage(): boolean {
@@ -22,6 +24,7 @@ export function getAppSettingsLocal(): AppSettings {
         typeof parsed.logoDataUrl === "string" ? parsed.logoDataUrl : null,
       companyName:
         typeof parsed.companyName === "string" ? parsed.companyName : "",
+      locale: normalizeLocale(parsed.locale),
     };
   } catch {
     return { ...DEFAULTS };

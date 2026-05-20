@@ -1,25 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { ExportMode } from "@/types/pdf-converter";
-
-const OPTIONS: { value: ExportMode; title: string; description: string }[] = [
-  {
-    value: "single_sheet",
-    title: "Jedan sheet",
-    description: "Sve u jednom tabu (podrazumevano)",
-  },
-  {
-    value: "multiple_sheets",
-    title: "Više sheetova",
-    description: "Svaka tabela / stranica u poseban tab",
-  },
-  {
-    value: "combined",
-    title: "Combined",
-    description: "Tabele sa istom strukturom kolona spojene u grupe",
-  },
-];
 
 interface ExportOptionsProps {
   value: ExportMode;
@@ -28,9 +11,29 @@ interface ExportOptionsProps {
 }
 
 export function ExportOptions({ value, onChange, disabled }: ExportOptionsProps) {
+  const t = useTranslations();
+
+  const options = [
+    {
+      value: "single_sheet" as const,
+      title: t("pdfToExcel.singleSheet"),
+      description: t("pdfToExcel.singleSheetDesc"),
+    },
+    {
+      value: "multiple_sheets" as const,
+      title: t("pdfToExcel.multiSheet"),
+      description: t("pdfToExcel.multiSheetDesc"),
+    },
+    {
+      value: "combined" as const,
+      title: t("pdfToExcel.combined"),
+      description: t("pdfToExcel.combinedDesc"),
+    },
+  ];
+
   return (
     <div className="grid gap-3 sm:grid-cols-3">
-      {OPTIONS.map((opt) => (
+      {options.map((opt) => (
         <button
           key={opt.value}
           type="button"

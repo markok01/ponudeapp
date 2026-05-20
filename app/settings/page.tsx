@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ImagePlus, Loader2, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminUsersPanel } from "@/components/settings/admin-users-panel";
+import { LanguageSettingsCard } from "@/components/settings/language-settings-card";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +19,11 @@ import {
   fileToDataUrl,
   validateLogoFile,
 } from "@/lib/file-to-base64";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
+  const t = useTranslations();
   const logoInputId = useId();
   const [companyName, setCompanyName] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -62,9 +65,9 @@ export default function SettingsPage() {
         URL.revokeObjectURL(previewRef.current);
       }
       setLogoPreview(dataUrl);
-      toast.success("Logo sačuvan (sinhronizovano sa serverom)");
+      toast.success(t("settings.logoSaved"));
     } catch {
-      toast.error("Upload logotipa nije uspeo");
+      toast.error(t("settings.logoUploadFailed"));
     }
   }
 
@@ -76,7 +79,7 @@ export default function SettingsPage() {
     }
     previewRef.current = null;
     setLogoPreview(null);
-    toast.success("Logo uklonjen");
+    toast.success(t("settings.logoRemoved"));
   }
 
   async function handleSaveCompany(e: React.FormEvent) {
@@ -84,9 +87,9 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       await persistAppSettings({ companyName: companyName.trim() });
-      toast.success("Podešavanja sačuvana na serveru");
+      toast.success(t("settings.saved"));
     } catch {
-      toast.error("Čuvanje nije uspelo");
+      toast.error(t("settings.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -94,7 +97,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <DashboardShell title="Podešavanja" description="Učitavanje...">
+      <DashboardShell title={t("settings.title")} description={t("common.loading")}>
         <div className="flex justify-center py-20 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
@@ -103,22 +106,19 @@ export default function SettingsPage() {
   }
 
   return (
-    <DashboardShell
-      title="Podešavanja"
-      description="Logo i naziv firme za PDF ponude (deljeno između uređaja)"
-    >
+    <DashboardShell title={t("settings.title")} description={t("settings.description")}>
       <div className="mx-auto w-full max-w-xl space-y-4 sm:space-y-6">
+        <LanguageSettingsCard />
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              Logo kompanije
+              {t("settings.logoTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Logo se čuva u bazi i koristi na svim PDF ponudama sa bilo kog uređaja.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("settings.logoHelp")}</p>
             <div
               className={cn(
                 "flex h-28 items-center justify-center rounded-xl border border-dashed border-input bg-muted/30 p-3",
@@ -130,17 +130,17 @@ export default function SettingsPage() {
                 <img
                   src={logoPreview}
                   alt="Logo"
-                  className="max-h-full max-w-full object-contain"
+                  className="max-h-full max-w-full object-contain object-center"
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">Nema logotipa</p>
+                <p className="text-sm text-muted-foreground">{t("settings.noLogo")}</p>
               )}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" asChild>
                 <label htmlFor={logoInputId} className="cursor-pointer">
                   <ImagePlus className="h-4 w-4" />
-                  Upload logo
+                  {t("settings.uploadLogo")}
                 </label>
               </Button>
               {logoPreview && (
@@ -152,7 +152,7 @@ export default function SettingsPage() {
                   onClick={() => void handleRemoveLogo()}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Ukloni
+                  {t("common.remove")}
                 </Button>
               )}
             </div>
@@ -168,22 +168,22 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Naziv firme</CardTitle>
+            <CardTitle>{t("settings.companyTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={(e) => void handleSaveCompany(e)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="company">Prikaz u PDF headeru</Label>
+                <Label htmlFor="company">{t("settings.companyLabel")}</Label>
                 <Input
                   id="company"
-                  placeholder="Npr. Moja firma d.o.o."
+                  placeholder={t("settings.companyPlaceholder")}
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                 />
               </div>
               <Button type="submit" className="w-full sm:w-auto" disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Sačuvaj
+                {t("common.save")}
               </Button>
             </form>
           </CardContent>

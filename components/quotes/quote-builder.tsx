@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Loader2, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CatalogFilters } from "@/components/catalog/catalog-filters";
@@ -10,20 +10,15 @@ import {
   CatalogSelectionHint,
 } from "@/components/quotes/catalog-horeca-table";
 import { QuoteLineCards } from "@/components/quotes/quote-line-cards";
+import { QuoteLinesTable } from "@/components/quotes/quote-lines-table";
+import { QuoteWorkspaceLayoutProvider } from "@/components/quotes/quote-workspace-layout-context";
+import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
+import { QuoteWorkspaceSplit } from "@/components/quotes/quote-workspace-split";
+import { RowHeightHandle } from "@/components/quotes/row-height-handle";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { HorizontalScroll } from "@/components/ui/horizontal-scroll";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   clearQuoteDraft,
   hasInvalidDiscount,
@@ -32,20 +27,14 @@ import {
   saveQuoteDraft,
   type QuoteBuilderDraft,
 } from "@/lib/quote-draft";
-import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type {
   Product,
   QuoteLineDraft,
   QuoteWithItems,
 } from "@/types";
 import { formatCurrency } from "@/utils/format";
-import {
-  quoteLineGrossAfterDiscount,
-  quoteLineNetAfterDiscount,
-  sumQuoteGross,
-  sumQuoteNet,
-  unitPriceWithPdv,
-} from "@/utils/prices";
+import { sumQuoteGross, sumQuoteNet } from "@/utils/prices";
 
 export interface QuoteBuilderProps {
   mode?: "create" | "edit";
@@ -103,6 +92,7 @@ export function QuoteBuilder({
   quoteId,
   duplicateFromId,
 }: QuoteBuilderProps) {
+  const t = useTranslations();
   const router = useRouter();
   const draftKey = quoteDraftStorageKey(mode === "edit" ? quoteId : undefined);
   const hydratedRef = useRef(false);
@@ -140,11 +130,11 @@ export function QuoteBuilder({
       setCatalogCategories(Array.isArray(data.categories) ? data.categories : []);
       setAllProducts(data.products ?? []);
     } catch {
-      toast.error("Greška pri učitavanju cenovnika");
+      toast.error(t("products.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [search, category]);
+  }, [search, category, t]);
 
   useEffect(() => {
     void fetchCatalog();
@@ -175,7 +165,9 @@ export function QuoteBuilder({
           if (!res.ok) throw new Error(data.error);
           const quote = data as QuoteWithItems;
           setCustomerName(
-            mode === "edit" ? quote.customer_name : `${quote.customer_name} (kopija)`,
+            mode === "edit"
+              ? quote.customer_name
+              : `${quote.customer_name} ${t("quotes.duplicateSuffix")}`,
           );
           setNote(quote.note ?? "");
           setValidUntil(quote.valid_until ?? "");
@@ -183,7 +175,7 @@ export function QuoteBuilder({
           hydratedRef.current = true;
           return;
         } catch {
-          toast.error("Ponuda nije učitana");
+          toast.error(t("products.loadFailed"));
         }
       }
 
@@ -193,13 +185,13 @@ export function QuoteBuilder({
         setNote(saved.note);
         setValidUntil(saved.validUntil);
         setLines(saved.lines);
-        toast.message("Učitan sačuvani nacrt ponude");
+        toast.message(t("quotes.draftLoaded"));
       }
       hydratedRef.current = true;
     }
 
     void hydrate();
-  }, [allProducts, draftKey, duplicateFromId, mode, quoteId]);
+  }, [allProducts, draftKey, duplicateFromId, mode, quoteId, t]);
 
   useEffect(() => {
     if (!hydratedRef.current || mode === "edit") return;
@@ -243,10 +235,10 @@ export function QuoteBuilder({
     setActiveProductId(product.id);
     setLines((prev) => {
       if (prev.some((l) => l.product.id === product.id)) {
-        toast.info("Proizvod je već u ponudi");
+        toast.info(t("quotes.alreadyInQuote"));
         return prev;
       }
-      toast.success("Dodato u ponudu");
+      toast.success(t("quotes.added"));
       return [...prev, { product, discount_percent: 0, qty: 1 }];
     });
   }
@@ -304,7 +296,7 @@ export function QuoteBuilder({
     });
 
     if (value < 0 || value > 100) {
-      toast.warning("Rabat je van opsega 0–100%");
+      toast.warning(t("quotes.discountRange"));
     }
   }
 
@@ -319,15 +311,15 @@ export function QuoteBuilder({
 
   async function saveQuote() {
     if (!customerName.trim()) {
-      toast.error("Unesite ime kupca");
+      toast.error(t("quotes.enterCustomer"));
       return;
     }
     if (!lines.length) {
-      toast.error("Dodajte bar jedan proizvod");
+      toast.error(t("quotes.addProduct"));
       return;
     }
     if (invalidDiscount) {
-      toast.error("Ispravite rabat (0–100%) pre čuvanja");
+      toast.error(t("quotes.fixDiscount"));
       return;
     }
 
@@ -356,30 +348,141 @@ export function QuoteBuilder({
       if (!res.ok) throw new Error(data.error);
 
       clearQuoteDraft(draftKey);
-      toast.success(mode === "edit" ? "Ponuda ažurirana" : "Ponuda kreirana");
+      toast.success(mode === "edit" ? t("quotes.updated") : t("quotes.created"));
       router.push(`/quotes/${data.id}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Greška");
+      toast.error(error instanceof Error ? error.message : t("common.error"));
     } finally {
       setSaving(false);
     }
   }
 
-  const saveLabel =
-    mode === "edit" ? "Sačuvaj izmene" : "Kreiraj ponudu";
+  const saveLabel = mode === "edit" ? t("quotes.saveChanges") : t("quotes.createQuote");
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <Card>
-        <CardContent className="grid gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-[1fr_auto] xl:items-end">
-          <div className="space-y-2 md:col-span-2 xl:col-span-1">
-            <Label htmlFor="customer">Ime kupca</Label>
+    <QuoteWorkspaceLayoutProvider>
+      <QuoteBuilderWorkspace
+        saveLabel={saveLabel}
+        saveQuote={saveQuote}
+        saving={saving}
+        t={t}
+        customerName={customerName}
+        setCustomerName={setCustomerName}
+        customerSuggestions={customerSuggestions}
+        validUntil={validUntil}
+        setValidUntil={setValidUntil}
+        note={note}
+        setNote={setNote}
+        invalidDiscount={invalidDiscount}
+        loading={loading}
+        allProducts={allProducts}
+        displayProducts={displayProducts}
+        catalogTotal={catalogTotal}
+        catalogCategories={catalogCategories}
+        search={search}
+        setSearch={setSearch}
+        category={category}
+        setCategory={setCategory}
+        inQuoteIds={inQuoteIds}
+        activeProductId={activeProductId}
+        addProduct={addProduct}
+        activeProduct={activeProduct}
+        lines={lines}
+        discountInputValue={discountInputValue}
+        handleDiscountChange={handleDiscountChange}
+        handleDiscountBlur={handleDiscountBlur}
+        removeLine={removeLine}
+        totals={totals}
+      />
+    </QuoteWorkspaceLayoutProvider>
+  );
+}
+
+function QuoteBuilderWorkspace({
+  saveLabel,
+  saveQuote,
+  saving,
+  t,
+  customerName,
+  setCustomerName,
+  customerSuggestions,
+  validUntil,
+  setValidUntil,
+  note,
+  setNote,
+  invalidDiscount,
+  loading,
+  allProducts,
+  displayProducts,
+  catalogTotal,
+  catalogCategories,
+  search,
+  setSearch,
+  category,
+  setCategory,
+  inQuoteIds,
+  activeProductId,
+  addProduct,
+  activeProduct,
+  lines,
+  discountInputValue,
+  handleDiscountChange,
+  handleDiscountBlur,
+  removeLine,
+  totals,
+}: {
+  saveLabel: string;
+  saveQuote: () => void;
+  saving: boolean;
+  t: ReturnType<typeof useTranslations>;
+  customerName: string;
+  setCustomerName: (v: string) => void;
+  customerSuggestions: string[];
+  validUntil: string;
+  setValidUntil: (v: string) => void;
+  note: string;
+  setNote: (v: string) => void;
+  invalidDiscount: boolean;
+  loading: boolean;
+  allProducts: Product[];
+  displayProducts: Product[];
+  catalogTotal: number;
+  catalogCategories: string[];
+  search: string;
+  setSearch: (v: string) => void;
+  category: string;
+  setCategory: (v: string) => void;
+  inQuoteIds: Set<number>;
+  activeProductId: number | null;
+  addProduct: (p: Product) => void;
+  activeProduct: Product | null;
+  lines: QuoteLineDraft[];
+  discountInputValue: (id: number, stored: number) => string;
+  handleDiscountChange: (id: number, raw: string) => void;
+  handleDiscountBlur: (id: number) => void;
+  removeLine: (id: number) => void;
+  totals: { net: number; gross: number };
+}) {
+  const { styleVars } = useQuoteWorkspaceLayout();
+
+  return (
+    <div
+      className="quote-workspace flex min-h-0 flex-1 flex-col gap-2 overflow-hidden sm:gap-2"
+      style={styleVars as React.CSSProperties}
+    >
+      <div className="quote-workspace-meta shrink-0 rounded-[var(--radius)] border border-border/80 bg-card px-3 py-3 shadow-[var(--shadow-soft)] sm:px-4">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto] lg:items-end lg:gap-4">
+          <div className="space-y-1.5 min-w-0">
+            <Label htmlFor="customer" className="text-xs">
+              {t("quotes.customerName")}
+            </Label>
             <Input
               id="customer"
               list="customer-suggestions"
-              placeholder="Npr. Kompanija d.o.o."
+              placeholder={t("quotes.customerPlaceholder")}
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
+              className="h-9"
             />
             <datalist id="customer-suggestions">
               {customerSuggestions.map((name) => (
@@ -387,235 +490,177 @@ export function QuoteBuilder({
               ))}
             </datalist>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="valid-until" className="text-xs">
+              {t("quotes.validUntil")}
+            </Label>
+            <Input
+              id="valid-until"
+              type="date"
+              value={validUntil}
+              onChange={(e) => setValidUntil(e.target.value)}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5 min-w-0">
+            <Label htmlFor="note" className="text-xs">
+              {t("quotes.notePdf")}
+            </Label>
+            <Input
+              id="note"
+              placeholder={t("quotes.notePlaceholder")}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="h-9"
+            />
+          </div>
           <SaveQuoteButton
             label={saveLabel}
             onClick={saveQuote}
             saving={saving}
-            className="hidden w-full md:flex xl:w-auto"
+            className="hidden h-9 shrink-0 lg:inline-flex"
           />
-          <div className="space-y-2 md:col-span-2 xl:col-span-2 xl:grid xl:grid-cols-2 xl:gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="valid-until">Rok važenja</Label>
-              <Input
-                id="valid-until"
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="note">Napomena (PDF)</Label>
-              <Input
-                id="note"
-                placeholder="Opciono — prikazuje se u footeru PDF-a"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {invalidDiscount ? (
-        <p className="rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100">
-          Jedna ili više stavki ima rabat van opsega 0–100%.
+        <p className="shrink-0 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100 sm:text-sm">
+          {t("quotes.discountInvalid")}
         </p>
       ) : null}
 
-      <div className="grid gap-4 sm:gap-5 xl:grid-cols-2">
-        <Card className="order-1 min-w-0">
-          <CardHeader className="space-y-3">
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Cenovnik
-            </CardTitle>
-            <CatalogFilters
-              search={search}
-              onSearchChange={setSearch}
-              category={category}
-              onCategoryChange={setCategory}
-              categories={catalogCategories}
-              resultCount={catalogTotal}
-            />
-          </CardHeader>
-          <CardContent className="space-y-4 max-md:px-2 sm:px-6">
-            {loading && !allProducts.length ? (
-              <div className="flex justify-center py-16 text-muted-foreground">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : displayProducts.length === 0 ? (
-              <EmptyState
-                icon={BookOpen}
-                title="Nema rezultata"
-                description="Promenite pretragu ili uvezite cenovnik."
+      <QuoteWorkspaceSplit
+        catalog={
+          <>
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2 sm:px-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <BookOpen className="h-4 w-4 text-primary" />
+                {t("quotes.catalogTitle")}
+                <span className="text-[11px] font-normal tabular-nums text-muted-foreground">
+                  ({catalogTotal.toLocaleString()})
+                </span>
+              </h3>
+              <RowHeightHandle />
+            </div>
+            <div className="shrink-0 space-y-2 border-b border-border/40 px-3 py-2">
+              <CatalogFilters
+                search={search}
+                onSearchChange={setSearch}
+                category={category}
+                onCategoryChange={setCategory}
+                categories={catalogCategories}
+                resultCount={catalogTotal}
               />
-            ) : (
-              <>
-                <CatalogHorecaTable
-                  products={displayProducts}
-                  inQuoteIds={inQuoteIds}
-                  activeProductId={activeProductId}
-                  onSelect={addProduct}
-                />
-                <CatalogSelectionHint
-                  activeProduct={activeProduct}
-                  inQuoteCount={lines.length}
-                />
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="order-2 min-w-0">
-          <CardHeader className="p-3 sm:p-4 sm:pb-2">
-            <CardTitle className="text-base">Stavke ponude</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
-            {lines.length === 0 ? (
-              <EmptyState
-                icon={Plus}
-                title="Ponuda je prazna"
-                description="Kliknite proizvod u cenovniku."
-              />
-            ) : (
-              <>
-                <QuoteLineCards
-                  lines={lines}
-                  activeProductId={activeProductId}
-                  discountInputValue={discountInputValue}
-                  onDiscountChange={handleDiscountChange}
-                  onDiscountBlur={handleDiscountBlur}
-                  onRemove={removeLine}
-                  invalidDiscountIds={lines
-                    .filter(
-                      (l) => l.discount_percent < 0 || l.discount_percent > 100,
-                    )
-                    .map((l) => l.product.id)}
-                />
-                <HorizontalScroll className="hidden max-h-[min(72vh,720px)] md:block">
-                  <Table className="text-xs">
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="h-8 px-2 text-[10px]">Šifra</TableHead>
-                        <TableHead className="px-2 text-[10px]">Naziv</TableHead>
-                        <TableHead className="px-2 text-right text-[10px]">Bez PDV</TableHead>
-                        <TableHead className="px-2 text-right text-[10px]">Sa PDV</TableHead>
-                        <TableHead className="w-16 px-2 text-[10px]">Rabat</TableHead>
-                        <TableHead className="px-2 text-right text-[10px]">Ukupno</TableHead>
-                        <TableHead className="w-8 px-1" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {lines.map((line) => {
-                        const grossLine = quoteLineGrossAfterDiscount(
-                          line.product.price,
-                          line.discount_percent,
-                          line.product.pdv_percent,
-                          1,
-                        );
-                        const badDiscount =
-                          line.discount_percent < 0 || line.discount_percent > 100;
-                        const isHighlighted = activeProductId === line.product.id;
-                        return (
-                          <TableRow
-                            key={line.product.id}
-                            className={cn(isHighlighted && "bg-primary/10")}
-                          >
-                            <TableCell className="px-2 py-1.5 font-mono text-[11px]">
-                              {line.product.sku}
-                            </TableCell>
-                            <TableCell className="max-w-[14rem] px-2 py-1.5">
-                              <p className="truncate text-[11px] font-medium leading-tight">
-                                {line.product.name}
-                              </p>
-                            </TableCell>
-                            <TableCell className="px-2 py-1.5 text-right text-[11px] tabular-nums whitespace-nowrap">
-                              {formatCurrency(line.product.price)}
-                            </TableCell>
-                            <TableCell className="px-2 py-1.5 text-right text-[11px] tabular-nums whitespace-nowrap">
-                              {formatCurrency(
-                                unitPriceWithPdv(
-                                  line.product.price,
-                                  line.product.pdv_percent,
-                                ),
-                              )}
-                            </TableCell>
-                            <TableCell className="px-2 py-1.5">
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                className={cn(
-                                  "h-7 w-14 px-1.5 text-xs",
-                                  badDiscount && "border-destructive",
-                                )}
-                                value={discountInputValue(
-                                  line.product.id,
-                                  line.discount_percent,
-                                )}
-                                onChange={(e) =>
-                                  handleDiscountChange(
-                                    line.product.id,
-                                    e.target.value,
-                                  )
-                                }
-                                onBlur={() => handleDiscountBlur(line.product.id)}
-                              />
-                            </TableCell>
-                            <TableCell className="px-2 py-1.5 text-right text-[11px] font-semibold tabular-nums whitespace-nowrap text-primary">
-                              {formatCurrency(grossLine)}
-                            </TableCell>
-                            <TableCell className="px-1 py-1.5">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => removeLine(line.product.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </HorizontalScroll>
-                <div className="mt-3 grid gap-3 rounded-[var(--radius)] border border-border/80 bg-accent/30 px-3 py-3 sm:grid-cols-2 sm:px-4">
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Ukupno bez PDV
-                    </p>
-                    <p className="mt-1 text-price text-xl">{formatCurrency(totals.net)}</p>
-                  </div>
-                  <div className="sm:text-right">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Ukupno sa PDV
-                    </p>
-                    <p className="mt-1 text-price-total text-2xl">
-                      {formatCurrency(totals.gross)}
-                    </p>
-                  </div>
+            </div>
+            <div className="quote-catalog-body px-2 pb-2 pt-1 sm:px-2">
+              {loading && !allProducts.length ? (
+                <div className="flex flex-1 items-center justify-center text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              ) : displayProducts.length === 0 ? (
+                <EmptyState
+                  icon={BookOpen}
+                  title={t("common.noResults")}
+                  description={t("quotes.catalogEmpty")}
+                />
+              ) : (
+                <>
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <CatalogHorecaTable
+                      products={displayProducts}
+                      inQuoteIds={inQuoteIds}
+                      activeProductId={activeProductId}
+                      onSelect={addProduct}
+                    />
+                  </div>
+                  <div className="shrink-0 border-t border-border/50 pt-1.5">
+                    <CatalogSelectionHint
+                      activeProduct={activeProduct}
+                      inQuoteCount={lines.length}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        }
+        quote={
+          <>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+              <h3 className="text-sm font-semibold">{t("quotes.linesTitle")}</h3>
+              <div className="flex items-center gap-2">
+                {lines.length > 0 ? (
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-primary">
+                    {lines.length}
+                  </span>
+                ) : null}
+                <RowHeightHandle />
+              </div>
+            </div>
+            <div className="quote-lines-body p-2">
+              {lines.length === 0 ? (
+                <EmptyState
+                  icon={Plus}
+                  title={t("quotes.emptyQuote")}
+                  description={t("quotes.emptyQuoteHint")}
+                />
+              ) : (
+                <>
+                  <QuoteLineCards
+                    lines={lines}
+                    activeProductId={activeProductId}
+                    discountInputValue={discountInputValue}
+                    onDiscountChange={handleDiscountChange}
+                    onDiscountBlur={handleDiscountBlur}
+                    onRemove={removeLine}
+                    invalidDiscountIds={lines
+                      .filter(
+                        (l) =>
+                          l.discount_percent < 0 || l.discount_percent > 100,
+                      )
+                      .map((l) => l.product.id)}
+                  />
+                  <div className="quote-lines-desktop hidden min-h-0 flex-1 flex-col overflow-hidden lg:flex">
+                    <QuoteLinesTable
+                      lines={lines}
+                      activeProductId={activeProductId}
+                      discountInputValue={discountInputValue}
+                      onDiscountChange={handleDiscountChange}
+                      onDiscountBlur={handleDiscountBlur}
+                      onRemove={removeLine}
+                    />
+                  </div>
+                  <div className="quote-workspace-totals shrink-0 grid gap-2 rounded-[var(--radius-md)] border border-border/80 bg-accent/30 px-3 py-2 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        {t("quotes.totalExVat")}
+                      </p>
+                      <p className="mt-0.5 text-price text-lg sm:text-xl">
+                        {formatCurrency(totals.net)}
+                      </p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        {t("quotes.totalIncVat")}
+                      </p>
+                      <p className="mt-0.5 text-price-total text-xl sm:text-2xl">
+                        {formatCurrency(totals.gross)}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        }
+      />
 
-      <div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background/95 px-3 py-3 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden sm:-mx-0">
+      <div className="shrink-0 border-t border-border bg-background px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
         <SaveQuoteButton
           label={saveLabel}
           onClick={saveQuote}
           saving={saving}
-          className="w-full"
-        />
-      </div>
-      <div className="hidden justify-end border-t pt-6 md:flex">
-        <SaveQuoteButton
-          label={saveLabel}
-          onClick={saveQuote}
-          saving={saving}
-          className="w-full sm:w-auto"
+          className="h-10 w-full"
         />
       </div>
     </div>

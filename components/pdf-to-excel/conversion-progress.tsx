@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { JobStatus } from "@/types/pdf-converter";
 
@@ -10,19 +11,21 @@ interface ConversionProgressProps {
   logs: string[];
 }
 
-const STEPS = [
-  { at: 10, label: "Analiza dokumenta" },
-  { at: 35, label: "Ekstrakcija tabela" },
-  { at: 70, label: "Obrada podataka" },
-  { at: 90, label: "Generisanje Excel-a" },
-];
-
 export function ConversionProgress({ status, progress, logs }: ConversionProgressProps) {
+  const t = useTranslations();
+
   if (status === "idle") return null;
 
   const isActive = status === "pending" || status === "processing";
   const isDone = status === "completed";
   const isFailed = status === "failed";
+
+  const steps = [
+    { at: 10, label: t("pdfToExcel.progressAnalyze") },
+    { at: 35, label: t("pdfToExcel.progressExtract") },
+    { at: 70, label: t("pdfToExcel.progressProcess") },
+    { at: 90, label: t("pdfToExcel.progressExcel") },
+  ];
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -31,7 +34,11 @@ export function ConversionProgress({ status, progress, logs }: ConversionProgres
           {isActive && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
           {isDone && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
           <span className="text-sm font-medium">
-            {isFailed ? "Konverzija nije uspela" : isDone ? "Konverzija završena" : "Konverzija u toku..."}
+            {isFailed
+              ? t("pdfToExcel.progressFailed")
+              : isDone
+                ? t("pdfToExcel.progressDone")
+                : t("pdfToExcel.progressRunning")}
           </span>
         </div>
         <span className="text-sm tabular-nums text-muted-foreground">{progress}%</span>
@@ -48,7 +55,7 @@ export function ConversionProgress({ status, progress, logs }: ConversionProgres
       </div>
 
       <div className="grid gap-2 sm:grid-cols-4">
-        {STEPS.map((step) => (
+        {steps.map((step) => (
           <div
             key={step.label}
             className={cn(

@@ -97,7 +97,7 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-montserrat);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -129,7 +129,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-montserrat), "Montserrat", system-ui, sans-serif;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -260,6 +260,142 @@ body {
 .glass-panel {
   background: var(--sidebar);
   border-color: var(--glass-border);
+}
+
+/* iOS-style app icon tile */
+.app-logo-tile {
+  background: linear-gradient(145deg, #8eb5f7 0%, #5b8def 48%, #4a7de8 100%);
+}
+
+.dark .app-logo-tile {
+  background: linear-gradient(145deg, #9ec0f8 0%, #6b94f0 50%, #5b8def 100%);
+  box-shadow: 0 2px 14px rgba(91, 141, 239, 0.25);
+}
+
+/* Mobile drawer — GPU transform, bez blur overlay-a */
+.app-sidebar-drawer {
+  transform: translate3d(-105%, 0, 0);
+  transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+  contain: layout style paint;
+}
+
+.app-sidebar-drawer[data-open="true"] {
+  transform: translate3d(0, 0, 0);
+}
+
+/* Samo standardni layout: sidebar uvek vidljiv na desktopu */
+@media (min-width: 1024px) {
+  .app-sidebar-pinned {
+    transform: none !important;
+    will-change: auto;
+    contain: none;
+  }
+}
+
+.app-overlay-drawer {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease-out;
+}
+
+.app-overlay-drawer[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar-drawer,
+  .app-overlay-drawer {
+    transition: none;
+  }
+}
+
+/* Nova ponuda: fiksna visina ekrana, skrol samo unutar panela */
+.dashboard-workspace {
+  overflow: hidden;
+}
+
+.dashboard-workspace main > div {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.quote-workspace {
+  --quote-chrome: 8.5rem;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.quote-workspace-panels {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.quote-workspace .quote-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.quote-workspace .quote-catalog-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.quote-workspace .quote-lines-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.quote-workspace .catalog-scroll-wrap {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.quote-workspace .catalog-scroll-area,
+.quote-workspace .quote-lines-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quote-workspace .catalog-cell-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-workspace .quote-line-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2rem;
+}
+
+.quote-workspace-totals {
+  flex-shrink: 0;
+}
+
+.quote-panel-split {
+  flex-shrink: 0;
 }
 
 .glass-navbar {

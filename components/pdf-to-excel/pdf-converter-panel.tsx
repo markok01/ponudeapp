@@ -17,11 +17,13 @@ import { ConversionProgress } from "@/components/pdf-to-excel/conversion-progres
 import { DataPreview } from "@/components/pdf-to-excel/data-preview";
 import { ExportOptions } from "@/components/pdf-to-excel/export-options";
 import { PdfDropZone } from "@/components/pdf-to-excel/pdf-drop-zone";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { ExportMode, PdfConvertJob } from "@/types/pdf-converter";
 
 const POLL_INTERVAL_MS = 1200;
 
 export function PdfConverterPanel() {
+  const t = useTranslations();
   const [file, setFile] = useState<File | null>(null);
   const [baseName, setBaseName] = useState("document");
   const [exportMode, setExportMode] = useState<ExportMode>("single_sheet");
@@ -59,34 +61,39 @@ export function PdfConverterPanel() {
         try {
           const res = await fetch(`/api/pdf-convert/${jobId}`);
           const data: PdfConvertJob = await res.json();
-          if (!res.ok) throw new Error(data.error ?? "Greška");
+          if (!res.ok) throw new Error(data.error ?? t("common.error"));
 
           setJob(data);
 
           if (data.status === "completed") {
             stopPolling();
             setConverting(false);
-            toast.success(`Excel spreman: ${data.rowCount ?? 0} redova, ${data.sheetCount ?? 0} sheet(ova)`);
+            toast.success(
+              t("pdfToExcel.excelReady", {
+                rows: data.rowCount ?? 0,
+                sheets: data.sheetCount ?? 0,
+              }),
+            );
           } else if (data.status === "failed") {
             stopPolling();
             setConverting(false);
-            toast.error(data.error ?? "Konverzija nije uspela");
+            toast.error(data.error ?? t("pdfToExcel.convertFailed"));
           }
         } catch (error) {
           stopPolling();
           setConverting(false);
-          toast.error(error instanceof Error ? error.message : "Greška pri praćenju statusa");
+          toast.error(error instanceof Error ? error.message : t("pdfToExcel.statusFailed"));
         }
       }, POLL_INTERVAL_MS);
     },
-    [stopPolling],
+    [stopPolling, t],
   );
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
   async function handleConvert() {
     if (!file) {
-      toast.error("Izaberite PDF fajl");
+      toast.error(t("pdfToExcel.selectPdf"));
       return;
     }
 
@@ -119,12 +126,15 @@ export function PdfConverterPanel() {
         });
         setConverting(false);
         toast.success(
-          `HoReCa Excel spreman: ${data.rowCount ?? 0} proizvoda, ${data.sheetCount ?? 0} sheet(ova)`,
+          t("pdfToExcel.horecaReady", {
+            products: data.rowCount ?? 0,
+            sheets: data.sheetCount ?? 0,
+          }),
         );
         return;
       }
 
-      toast.message("Konverzija pokrenuta");
+      toast.message(t("pdfToExcel.started"));
 
       const fetchStatus = async () => {
         const statusRes = await fetch(`/api/pdf-convert/${data.jobId}`);
@@ -137,9 +147,14 @@ export function PdfConverterPanel() {
       if (first.status === "completed" || first.status === "failed") {
         setConverting(false);
         if (first.status === "completed") {
-          toast.success(`Excel spreman: ${first.rowCount ?? 0} redova`);
+          toast.success(
+            t("pdfToExcel.excelReady", {
+              rows: first.rowCount ?? 0,
+              sheets: first.sheetCount ?? 0,
+            }),
+          );
         } else {
-          toast.error(first.error ?? "Konverzija nije uspela");
+          toast.error(first.error ?? t("pdfToExcel.convertFailed"));
         }
         return;
       }
@@ -147,7 +162,7 @@ export function PdfConverterPanel() {
       pollJob(data.jobId);
     } catch (error) {
       setConverting(false);
-      toast.error(error instanceof Error ? error.message : "Upload nije uspeo");
+      toast.error(error instanceof Error ? error.message : t("pdfToExcel.uploadFailed"));
     }
   }
 
@@ -165,14 +180,14 @@ export function PdfConverterPanel() {
         link.download = job.fileName ?? "horeca-cenovnik.xlsx";
         link.click();
         URL.revokeObjectURL(url);
-        toast.success("Excel preuzet");
+        toast.success(t("pdfToExcel.downloaded"));
         return;
       }
 
       const res = await fetch(`/api/pdf-convert/${job.jobId}/download`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Preuzimanje nije uspelo");
+        throw new Error(data.error ?? t("pdfToExcel.downloadFailed"));
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -181,9 +196,9 @@ export function PdfConverterPanel() {
       link.download = job.fileName ?? "document.xlsx";
       link.click();
       URL.revokeObjectURL(url);
-      toast.success("Excel preuzet");
+      toast.success(t("pdfToExcel.downloaded"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Preuzimanje nije uspelo");
+      toast.error(error instanceof Error ? error.message : t("pdfToExcel.downloadFailed"));
     }
   }
 
@@ -202,9 +217,7 @@ export function PdfConverterPanel() {
     <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-4 sm:gap-6">
       {serviceOk === false && (
         <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
-          HoReCa cenovnik radi lokalno (potreban <code className="text-xs">python3</code> +{" "}
-          <code className="text-xs">pip install pdfplumber</code>). Za ostale PDF-ove:{" "}
-          <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs">docker compose up pdf-converter</code>
+          {t("pdfToExcel.horecaBanner")}
         </div>
       )}
 
@@ -214,11 +227,10 @@ export function PdfConverterPanel() {
             <div className="min-w-0">
               <CardTitle className="flex flex-wrap items-center gap-2 text-lg sm:text-xl">
                 <Sparkles className="h-5 w-5 text-primary" />
-                PDF → Excel konverter
+                {t("pdfToExcel.panelTitle")}
               </CardTitle>
               <CardDescription className="mt-1.5 max-w-xl">
-                Profesionalna ekstrakcija tabela iz bilo kog PDF-a — fakture, cenovnici,
-                bankovni izvodi, više stranica i više tabela.
+                {t("pdfToExcel.panelDesc")}
               </CardDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={checkHealth} className="shrink-0">
@@ -229,7 +241,7 @@ export function PdfConverterPanel() {
 
         <CardContent className="space-y-6 pt-6">
           <div className="space-y-2">
-            <Label htmlFor="base-name">Naziv Excel fajla</Label>
+            <Label htmlFor="base-name">{t("pdfToExcel.fileName")}</Label>
             <Input
               id="base-name"
               value={baseName}
@@ -242,7 +254,7 @@ export function PdfConverterPanel() {
           <PdfDropZone file={file} onFileSelect={setFile} disabled={converting} />
 
           <div className="space-y-2">
-            <Label>Način exporta</Label>
+            <Label>{t("pdfToExcel.exportMode")}</Label>
             <ExportOptions value={exportMode} onChange={setExportMode} disabled={converting} />
           </div>
 
@@ -251,12 +263,12 @@ export function PdfConverterPanel() {
               {converting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Konvertujem...
+                  {t("pdfToExcel.converting")}
                 </>
               ) : (
                 <>
                   <FileSpreadsheet className="h-4 w-4" />
-                  Konvertuj u Excel
+                  {t("pdfToExcel.convert")}
                 </>
               )}
             </Button>
@@ -264,13 +276,13 @@ export function PdfConverterPanel() {
             {job?.status === "completed" && (
               <Button variant="secondary" className="w-full sm:w-auto" onClick={handleDownload}>
                 <Download className="h-4 w-4" />
-                Preuzmi Excel
+                {t("pdfToExcel.download")}
               </Button>
             )}
 
             {(job || file) && !converting && (
               <Button variant="outline" className="w-full sm:w-auto" onClick={handleReset}>
-                Novi dokument
+                {t("pdfToExcel.newDoc")}
               </Button>
             )}
           </div>
@@ -283,7 +295,7 @@ export function PdfConverterPanel() {
 
           {job?.preview && job.status === "completed" && (
             <div className="space-y-3 border-t border-border/40 pt-6">
-              <h3 className="text-sm font-semibold">Pregled ekstrahovanih podataka</h3>
+              <h3 className="text-sm font-semibold">{t("pdfToExcel.previewTitle")}</h3>
               <DataPreview preview={job.preview} />
             </div>
           )}

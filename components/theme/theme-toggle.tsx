@@ -3,9 +3,11 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 export function ThemeToggle() {
+  const t = useTranslations();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -27,7 +29,7 @@ export function ThemeToggle() {
       type="button"
       role="switch"
       aria-checked={isDark}
-      aria-label={isDark ? "Uključi svetlu temu" : "Uključi tamnu temu"}
+      aria-label={isDark ? t("theme.light") : t("theme.dark")}
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={cn(
         "relative inline-flex h-9 w-[4.25rem] shrink-0 items-center rounded-full border p-0.5 transition-all duration-300 ease-out",

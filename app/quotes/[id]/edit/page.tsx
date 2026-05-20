@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { getQuoteLabel } from "@/utils/format-quote-number";
 
 export default function EditQuotePage() {
+  const t = useTranslations();
   const params = useParams<{ id: string }>();
   const quoteId = Number(params.id);
   const [quoteLabel, setQuoteLabel] = useState("");
@@ -26,14 +28,19 @@ export default function EditQuotePage() {
 
   return (
     <DashboardShell
-      title={`Uredi ${quoteLabel || `ponudu #${params.id}`}`}
-      description="Izmenite stavke, rabat i količine"
+      variant="workspace"
+      title={
+        quoteLabel
+          ? t("quotes.editQuoteFor", { label: quoteLabel })
+          : t("quotes.editQuote")
+      }
+      description={t("quotes.editItemsHint")}
       breadcrumbs={[
-        { label: "Ponude", href: "/quotes" },
+        { label: t("quotes.title"), href: "/quotes" },
         ...(quoteLabel
           ? [{ label: quoteLabel, href: `/quotes/${params.id}` }]
           : []),
-        { label: "Uredi" },
+        { label: t("common.edit") },
       ]}
     >
       <QuoteBuilder mode="edit" quoteId={quoteId} />

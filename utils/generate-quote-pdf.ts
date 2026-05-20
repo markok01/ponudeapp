@@ -8,7 +8,6 @@ import {
   registerPdfFonts,
   setPdfFont,
 } from "@/lib/pdf-fonts";
-import { formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
 import { inferMeasureUnit } from "@/utils/measure-unit";
 import {
@@ -17,21 +16,24 @@ import {
 } from "@/utils/quote-calc";
 import { sumQuoteGross } from "@/utils/prices";
 
-const PAGE_MARGIN = 12;
-const CONTENT_WIDTH = 186;
+const TABLE_RADIUS = 3;
+/** Širina tabele — kolone moraju tačno da zbiraju ovu vrednost */
+const TABLE_WIDTH = 182;
 
-const COLORS = {
-  ink: [15, 23, 42] as [number, number, number],
-  muted: [100, 116, 139] as [number, number, number],
-  border: [226, 232, 240] as [number, number, number],
-  stripe: [248, 250, 252] as [number, number, number],
-  accent: [37, 99, 235] as [number, number, number],
+/** Diskretna pastel paleta — malo tamnija, i dalje blaga */
+const C = {
+  ink: [44, 51, 69] as [number, number, number],
+  muted: [107, 114, 137] as [number, number, number],
+  line: [210, 218, 230] as [number, number, number],
+  soft: [232, 236, 244] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
-  brand: [176, 159, 198] as [number, number, number],
+  head: [214, 222, 238] as [number, number, number],
+  group: [220, 216, 234] as [number, number, number],
+  groupText: [72, 66, 92] as [number, number, number],
+  accent: [91, 141, 239] as [number, number, number],
 };
 
 export interface GenerateQuotePdfOptions {
-  /** @deprecated Rabat je uvek uračunat u cene; opcija se ignoriše. */
   showDiscount?: boolean;
   showTotalSummary: boolean;
   includeLogo?: boolean;
@@ -50,115 +52,99 @@ function formatPdfMoney(value: number): string {
   }).format(value);
 }
 
+function formatPdfDate(value: string | Date): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  return new Intl.DateTimeFormat("sr-RS", { dateStyle: "medium" }).format(date);
+}
+
 function sanitizeFileName(name: string): string {
   return name.replace(/[^\w\s-čćžšđČĆŽŠĐ]/gi, "").replace(/\s+/g, "-");
 }
 
-const COLUMN_WIDTHS = {
-  name: 96,
-  unit: 14,
-  net: 34,
-  gross: 34,
-};
+const COL_W = { name: 98, unit: 14, net: 35, gross: 35 };
 
 function groupQuoteItemsByBrand(
   items: QuoteItemWithProduct[],
 ): { label: string; items: QuoteItemWithProduct[] }[] {
   const sorted = [...items].sort((a, b) => {
-    const order = a.sort_order - b.sort_order;
-    if (order !== 0) return order;
-    return a.id - b.id;
+    const o = a.sort_order - b.sort_order;
+    return o !== 0 ? o : a.id - b.id;
   });
-
   const groups: { label: string; items: QuoteItemWithProduct[] }[] = [];
-
   for (const item of sorted) {
     const label = item.category?.trim() || "Ostalo";
     const last = groups[groups.length - 1];
-    if (last && last.label === label) {
-      last.items.push(item);
-    } else {
-      groups.push({ label, items: [item] });
-    }
+    if (last?.label === label) last.items.push(item);
+    else groups.push({ label, items: [item] });
   }
-
   return groups;
 }
 
-function brandHeaderRow(label: string, withSpacer: boolean): RowInput[] {
+function brandHeaderRow(label: string, withGap: boolean): RowInput[] {
   const rows: RowInput[] = [];
-
-  if (withSpacer) {
+  if (withGap) {
     rows.push([
       {
         content: "",
         colSpan: 4,
-        styles: {
-          fillColor: COLORS.white,
-          lineWidth: 0,
-          minCellHeight: 3,
-          cellPadding: 0,
-        },
+        styles: { fillColor: C.white, lineWidth: 0, minCellHeight: 2, cellPadding: 0 },
       },
     ]);
   }
-
   rows.push([
     {
       content: label.toUpperCase(),
       colSpan: 4,
       styles: {
-        fillColor: COLORS.brand,
-        textColor: COLORS.white,
+        fillColor: C.group,
+        textColor: C.groupText,
         font: PDF_FONT_BOLD,
         fontStyle: "normal",
         fontSize: 6.5,
         halign: "center",
         valign: "middle",
         cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
-        minCellHeight: 5.5,
+        minCellHeight: 5,
       },
     },
   ]);
-
   return rows;
 }
 
 function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
-  const groups = groupQuoteItemsByBrand(items);
   const body: RowInput[] = [];
-  let productStripe = false;
+  let stripe = false;
 
-  groups.forEach((group, groupIndex) => {
-    body.push(...brandHeaderRow(group.label, groupIndex > 0));
+  groupQuoteItemsByBrand(items).forEach((group, gi) => {
+    body.push(...brandHeaderRow(group.label, gi > 0));
 
     for (const item of group.items) {
-      const netWithDiscount =
-        linePriceAfterDiscount(item.unit_price, item.discount_percent) *
-        (item.qty || 1);
-      const grossWithDiscount =
+      const qty = item.qty || 1;
+      const net =
+        linePriceAfterDiscount(item.unit_price, item.discount_percent) * qty;
+      const gross =
         linePriceWithPdv(
           item.unit_price,
           item.discount_percent,
           item.pdv_percent,
-        ) * (item.qty || 1);
-
-      const displayName =
-        (item.qty || 1) > 1 ? `${item.name} (${item.qty} kom)` : item.name;
-
-      const fillColor = productStripe ? COLORS.stripe : COLORS.white;
-      productStripe = !productStripe;
+        ) * qty;
+      const name =
+        qty > 1 ? `${item.name} (${qty} kom)` : item.name;
+      const bg = stripe ? C.soft : C.white;
+      stripe = !stripe;
 
       body.push([
         {
-          content: displayName,
+          content: name,
           styles: {
-            fillColor,
-            font: PDF_FONT_BOLD,
+            fillColor: bg,
+            textColor: C.ink,
+            font: PDF_FONT,
             fontStyle: "normal",
             fontSize: 6.5,
-            cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2.5 },
-            minCellHeight: 5,
+            cellPadding: { top: 2, right: 2.5, bottom: 2, left: 3 },
+            minCellHeight: 5.5,
+            overflow: "linebreak",
           },
         } as CellDef,
         {
@@ -166,36 +152,39 @@ function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
             item.measure_unit?.trim() ||
             inferMeasureUnit(item.name, item.category),
           styles: {
-            fillColor,
+            fillColor: bg,
+            textColor: C.muted,
             fontSize: 6,
             halign: "center",
             valign: "middle",
-            cellPadding: { top: 1.5, right: 1, bottom: 1.5, left: 1 },
-            minCellHeight: 5,
+            cellPadding: { top: 2, right: 1, bottom: 2, left: 1 },
+            minCellHeight: 5.5,
           },
         } as CellDef,
         {
-          content: formatPdfMoney(netWithDiscount),
+          content: formatPdfMoney(net),
           styles: {
-            fillColor,
+            fillColor: bg,
+            textColor: C.ink,
             fontSize: 6,
             halign: "right",
             valign: "middle",
-            cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 1 },
-            minCellHeight: 5,
+            cellPadding: { top: 2, right: 2.5, bottom: 2, left: 1 },
+            minCellHeight: 5.5,
           },
         } as CellDef,
         {
-          content: formatPdfMoney(grossWithDiscount),
+          content: formatPdfMoney(gross),
           styles: {
-            fillColor,
-            fontSize: 6,
-            halign: "right",
-            valign: "middle",
+            fillColor: bg,
+            textColor: C.ink,
             font: PDF_FONT_BOLD,
             fontStyle: "normal",
-            cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 1 },
-            minCellHeight: 5,
+            fontSize: 6,
+            halign: "right",
+            valign: "middle",
+            cellPadding: { top: 2, right: 2.5, bottom: 2, left: 1 },
+            minCellHeight: 5.5,
           },
         } as CellDef,
       ]);
@@ -206,7 +195,13 @@ function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
 }
 
 async function yieldToMain(): Promise<void> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  await new Promise<void>((r) => setTimeout(r, 0));
+}
+
+function contentMargins(doc: jsPDF) {
+  const pageW = doc.internal.pageSize.getWidth();
+  const marginX = (pageW - TABLE_WIDTH) / 2;
+  return { marginX, rightX: marginX + TABLE_WIDTH, pageW };
 }
 
 async function drawHeader(
@@ -214,114 +209,158 @@ async function drawHeader(
   quote: QuoteWithItems,
   options: GenerateQuotePdfOptions,
 ): Promise<number> {
-  const companyName =
+  const company =
     options.companyName?.trim() ||
     process.env.NEXT_PUBLIC_COMPANY_NAME?.trim() ||
     "PonudeApp";
 
-  let y = PAGE_MARGIN;
+  const { marginX, rightX } = contentMargins(doc);
+  let leftBottom = marginX;
 
   if (options.includeLogo && options.logoBase64) {
     try {
       const { width, height } = await loadImageDimensions(options.logoBase64);
-      const box = fitImageBox(width, height, 48, 22);
-      const format = options.logoBase64.includes("image/png") ? "PNG" : "JPEG";
+      const box = fitImageBox(width, height, 42, 18);
+      const fmt = options.logoBase64.includes("image/png") ? "PNG" : "JPEG";
       doc.addImage(
         options.logoBase64,
-        format,
-        PAGE_MARGIN,
-        y,
+        fmt,
+        marginX,
+        marginX,
         box.width,
         box.height,
         undefined,
         "FAST",
       );
-      y += box.height + 6;
+      leftBottom = marginX + box.height;
     } catch {
-      /* preskoči */
+      /* skip */
     }
   }
 
-  const headerTop = PAGE_MARGIN;
-  const metaX = PAGE_MARGIN + CONTENT_WIDTH;
+  const metaTop = marginX + 4;
 
-  setPdfFont(doc, "normal", 10);
-  doc.setTextColor(...COLORS.muted);
-  doc.text(companyName, metaX, headerTop + 4, { align: "right" });
-
-  setPdfFont(doc, "bold", 24);
-  doc.setTextColor(...COLORS.ink);
-  doc.text("PONUDA", metaX, headerTop + 15, { align: "right" });
-
-  setPdfFont(doc, "normal", 10);
-  doc.setTextColor(...COLORS.muted);
-  doc.text(`Datum: ${formatDate(quote.created_at)}`, metaX, headerTop + 23, {
-    align: "right",
-  });
-  doc.text(`Broj: ${getQuoteLabel(quote)}`, metaX, headerTop + 29, {
-    align: "right",
-  });
-
-  if (quote.valid_until) {
-    doc.text(
-      `Važi do: ${formatDate(quote.valid_until)}`,
-      metaX,
-      headerTop + 35,
-      { align: "right" },
-    );
-  }
-
-  const blockY = Math.max(y, headerTop + 36);
-  doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.4);
-  doc.line(PAGE_MARGIN, blockY, PAGE_MARGIN + CONTENT_WIDTH, blockY);
+  setPdfFont(doc, "normal", 7.5);
+  doc.setTextColor(...C.muted);
+  doc.text("PONUDA", rightX, metaTop, { align: "right" });
 
   setPdfFont(doc, "bold", 11);
-  doc.setTextColor(...COLORS.ink);
-  doc.text("Kupac", PAGE_MARGIN, blockY + 9);
+  doc.setTextColor(...C.ink);
+  doc.text(company, rightX, metaTop + 6, { align: "right" });
 
-  setPdfFont(doc, "normal", 11);
-  const customerLines = doc.splitTextToSize(
-    quote.customer_name,
-    CONTENT_WIDTH * 0.55,
-  ) as string[];
-  doc.text(customerLines, PAGE_MARGIN, blockY + 16);
-
-  return blockY + 16 + customerLines.length * 5 + 6;
-}
-
-function drawTotalsBlock(doc: jsPDF, startY: number, finalTotal: number) {
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const boxWidth = 72;
-  const boxHeight = 22;
-  const boxX = PAGE_MARGIN + CONTENT_WIDTH - boxWidth;
-
-  let y = startY + 8;
-  if (y + boxHeight > pageHeight - 14) {
-    doc.addPage();
-    y = PAGE_MARGIN + 8;
+  setPdfFont(doc, "normal", 8.5);
+  doc.setTextColor(...C.muted);
+  let metaY = metaTop + 13;
+  doc.text(`Datum: ${formatPdfDate(quote.created_at)}`, rightX, metaY, {
+    align: "right",
+  });
+  metaY += 5;
+  doc.text(`Broj: ${getQuoteLabel(quote)}`, rightX, metaY, { align: "right" });
+  if (quote.valid_until) {
+    metaY += 5;
+    doc.text(`Važi do: ${formatPdfDate(quote.valid_until)}`, rightX, metaY, {
+      align: "right",
+    });
   }
 
-  doc.setFillColor(...COLORS.stripe);
-  doc.setDrawColor(...COLORS.border);
+  const headerBottom = Math.max(leftBottom, metaY) + 8;
+
+  doc.setDrawColor(...C.line);
+  doc.setLineWidth(0.25);
+  doc.line(marginX, headerBottom, rightX, headerBottom);
+
+  const customerLines = doc.splitTextToSize(
+    quote.customer_name,
+    TABLE_WIDTH - 8,
+  ) as string[];
+  const blockY = headerBottom + 6;
+
+  setPdfFont(doc, "normal", 7);
+  doc.setTextColor(...C.muted);
+  doc.text("Kupac", marginX, blockY);
+
+  setPdfFont(doc, "bold", 11);
+  doc.setTextColor(...C.ink);
+  doc.text(customerLines, marginX, blockY + 5.5);
+
+  return blockY + 5.5 + customerLines.length * 5 + 8;
+}
+
+function drawTableFrame(
+  doc: jsPDF,
+  marginX: number,
+  topY: number,
+  bottomY: number,
+) {
+  const inset = 0.6;
+  const x = marginX - inset;
+  const w = TABLE_WIDTH + inset * 2;
+  const h = bottomY - topY + inset * 2;
+  if (h <= 0) return;
+
+  doc.setDrawColor(...C.line);
   doc.setLineWidth(0.3);
-  doc.roundedRect(boxX, y, boxWidth, boxHeight, 2, 2, "FD");
+  doc.roundedRect(x, topY - inset, w, h, TABLE_RADIUS, TABLE_RADIUS, "S");
+}
 
-  const labelX = boxX + 5;
-  const valueX = boxX + boxWidth - 5;
+function drawTotalsBlock(
+  doc: jsPDF,
+  marginX: number,
+  startY: number,
+  total: number,
+) {
+  const pageH = doc.internal.pageSize.getHeight();
+  const w = 70;
+  const h = 14;
+  const x = marginX + TABLE_WIDTH - w;
 
-  setPdfFont(doc, "bold", 9);
-  doc.setTextColor(...COLORS.ink);
-  doc.text("UKUPNO SA PDV", labelX, y + 10);
+  let y = startY + 8;
+  if (y + h > pageH - 14) {
+    doc.addPage();
+    y = marginX + 8;
+  }
 
-  setPdfFont(doc, "bold", 12);
-  doc.setTextColor(...COLORS.accent);
-  doc.text(
-    `${formatPdfMoney(finalTotal)} RSD`,
-    valueX,
-    y + 10,
-    { align: "right" },
-  );
+  doc.setFillColor(...C.soft);
+  doc.setDrawColor(...C.line);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, w, h, 2.5, 2.5, "FD");
+
+  setPdfFont(doc, "normal", 7.5);
+  doc.setTextColor(...C.muted);
+  doc.text("Ukupno sa PDV", x + 4, y + 5.5);
+
+  setPdfFont(doc, "bold", 11);
+  doc.setTextColor(...C.ink);
+  doc.text(`${formatPdfMoney(total)} RSD`, x + w - 4, y + 5.5, {
+    align: "right",
+  });
+}
+
+function drawFooter(
+  doc: jsPDF,
+  quote: QuoteWithItems,
+  page: number,
+  totalPages: number,
+) {
+  const { marginX, rightX } = contentMargins(doc);
+  const footerY = doc.internal.pageSize.getHeight() - 7;
+  const note = quote.note?.trim();
+
+  if (note && page === totalPages) {
+    setPdfFont(doc, "normal", 7);
+    doc.setTextColor(...C.muted);
+    const lines = doc.splitTextToSize(
+      `Napomena: ${note}`,
+      TABLE_WIDTH * 0.7,
+    ) as string[];
+    doc.text(lines, marginX, footerY - 4 - (lines.length - 1) * 3.5);
+  }
+
+  setPdfFont(doc, "normal", 7);
+  doc.setTextColor(...C.muted);
+  doc.text(`Strana ${page} / ${totalPages}`, rightX, footerY, {
+    align: "right",
+  });
 }
 
 export async function generateQuotePDF(
@@ -338,74 +377,59 @@ export async function generateQuotePDF(
   await registerPdfFonts(doc);
 
   const tableStartY = await drawHeader(doc, quote, options);
-  const finalTotal = sumQuoteGross(quote.items);
-
-  const head = [
-    "Naziv artikla",
-    "M.j.",
-    "Bez PDV",
-    "Sa PDV",
-  ];
+  const total = sumQuoteGross(quote.items);
+  const { marginX } = contentMargins(doc);
+  const frameTop = tableStartY - 2;
+  const pageW = doc.internal.pageSize.getWidth();
+  const marginRight = pageW - marginX - TABLE_WIDTH;
 
   autoTable(doc, {
     startY: tableStartY,
-    margin: { left: PAGE_MARGIN, right: PAGE_MARGIN, bottom: 14 },
-    tableWidth: CONTENT_WIDTH,
-    head: [head],
+    margin: { left: marginX, right: marginRight, bottom: 14 },
+    tableWidth: TABLE_WIDTH,
+    head: [["Naziv artikla", "M.j.", "Bez PDV", "Sa PDV"]],
     body: buildTableBody(quote.items),
     theme: "plain",
     styles: {
       font: PDF_FONT,
       fontSize: 6,
       overflow: "linebreak",
-      cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
-      lineColor: COLORS.border,
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2.5 },
+      lineColor: C.line,
       lineWidth: 0.1,
-      textColor: COLORS.ink,
+      textColor: C.ink,
       valign: "middle",
-      minCellHeight: 5,
+      minCellHeight: 5.5,
     },
     headStyles: {
       font: PDF_FONT_BOLD,
       fontStyle: "normal",
-      fillColor: COLORS.ink,
-      textColor: COLORS.white,
+      fillColor: C.head,
+      textColor: C.ink,
       fontSize: 6.5,
       cellPadding: { top: 2.5, right: 2, bottom: 2.5, left: 2 },
-      valign: "middle",
       halign: "center",
+      valign: "middle",
       minCellHeight: 6,
     },
     columnStyles: {
-      0: { cellWidth: COLUMN_WIDTHS.name, halign: "left" },
-      1: { cellWidth: COLUMN_WIDTHS.unit, halign: "center" },
-      2: { cellWidth: COLUMN_WIDTHS.net, halign: "right" },
-      3: { cellWidth: COLUMN_WIDTHS.gross, halign: "right" },
+      0: { cellWidth: COL_W.name, halign: "left" },
+      1: { cellWidth: COL_W.unit, halign: "center" },
+      2: { cellWidth: COL_W.net, halign: "right" },
+      3: { cellWidth: COL_W.gross, halign: "right" },
     },
     didDrawPage: (data) => {
-      setPdfFont(doc, "normal", 7);
-      doc.setTextColor(...COLORS.muted);
-      const footerY = doc.internal.pageSize.getHeight() - 7;
-      if (quote.note?.trim() && data.pageNumber === doc.getNumberOfPages()) {
-        doc.text(quote.note.trim(), PAGE_MARGIN, footerY - 4, {
-          maxWidth: CONTENT_WIDTH * 0.65,
-        });
-      }
-      doc.text(
-        `Strana ${data.pageNumber} / ${doc.getNumberOfPages()}`,
-        PAGE_MARGIN + CONTENT_WIDTH,
-        footerY,
-        { align: "right" },
-      );
+      drawFooter(doc, quote, data.pageNumber, doc.getNumberOfPages());
     },
   });
 
+  const tableEndY = doc.lastAutoTable?.finalY ?? tableStartY + 40;
+  drawTableFrame(doc, marginX, frameTop, tableEndY);
+
   if (options.showTotalSummary) {
-    const finalY = doc.lastAutoTable?.finalY ?? tableStartY + 40;
-    drawTotalsBlock(doc, finalY, finalTotal);
+    drawTotalsBlock(doc, marginX, tableEndY, total);
   }
 
   await yieldToMain();
-
   doc.save(`${getQuoteLabel(quote)}-${sanitizeFileName(quote.customer_name)}.pdf`);
 }

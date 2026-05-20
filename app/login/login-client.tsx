@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { AppLogo } from "@/components/brand/app-logo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +15,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 export default function LoginPageClient() {
+  const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/";
@@ -28,9 +31,9 @@ export default function LoginPageClient() {
 
   useEffect(() => {
     if (revoked) {
-      toast.info("Sesija je prekinuta. Prijavite se ponovo.");
+      toast.info(t("auth.sessionRevoked"));
     }
-  }, [revoked]);
+  }, [revoked, t]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,11 +47,11 @@ export default function LoginPageClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      toast.success("Uspešna prijava");
+      toast.success(t("auth.signInSuccess"));
       router.replace(next);
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Prijava nije uspela");
+      toast.error(error instanceof Error ? error.message : t("auth.signInFailed"));
     } finally {
       setLoading(false);
     }
@@ -58,18 +61,16 @@ export default function LoginPageClient() {
     <div className="dashboard-bg flex min-h-[100dvh] items-center justify-center px-4 py-8">
       <Card className="w-full max-w-md shadow-[var(--shadow-card)]">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-            <Lock className="h-6 w-6 text-primary" />
+          <div className="mx-auto mb-4 flex justify-center">
+            <AppLogo size="lg" showWordmark={false} />
           </div>
-          <CardTitle>PonudeApp</CardTitle>
-          <CardDescription>
-            Prijava samo za odobrene naloge — registracija nije moguća
-          </CardDescription>
+          <CardTitle>{t("auth.loginTitle")}</CardTitle>
+          <CardDescription>{t("auth.loginSubtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -82,7 +83,7 @@ export default function LoginPageClient() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Lozinka</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -99,15 +100,15 @@ export default function LoginPageClient() {
                 onChange={(e) => setRemember(e.target.checked)}
                 className="h-4 w-4 rounded border-border accent-primary"
               />
-              Ostani ulogovan na ovom uređaju
+              {t("auth.rememberMe")}
             </label>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Prijavi se
+              {t("auth.signIn")}
             </Button>
           </form>
-          <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground">
-            Nalog kreira samo administrator (nema „Registruj se”).
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            {t("auth.adminNote")}
           </p>
         </CardContent>
       </Card>

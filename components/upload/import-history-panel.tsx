@@ -6,10 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { PriceListRecord } from "@/types";
 import { formatDate } from "@/utils/format";
 
 export function ImportHistoryPanel() {
+  const t = useTranslations();
   const [records, setRecords] = useState<PriceListRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [rollbackId, setRollbackId] = useState<number | null>(null);
@@ -23,11 +25,11 @@ export function ImportHistoryPanel() {
       if (!res.ok) throw new Error(data.error);
       setRecords(data);
     } catch {
-      toast.error("Istorija uvoza nije učitana");
+      toast.error(t("upload.historyLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -42,11 +44,11 @@ export function ImportHistoryPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(data.message ?? "Snapshot vraćen");
+      toast.success(data.message ?? t("upload.rollbackSuccess"));
       setRollbackId(null);
       void load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Rollback nije uspeo");
+      toast.error(error instanceof Error ? error.message : t("upload.rollbackFailed"));
     } finally {
       setRollingBack(false);
     }
@@ -60,19 +62,17 @@ export function ImportHistoryPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <History className="h-4 w-4" />
-            Istorija uvoza
+            {t("upload.historyTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Učitavanje...
+              {t("common.loading")}
             </div>
           ) : records.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Još nema uvezenih cenovnika u bazi.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("upload.noHistory")}</p>
           ) : (
             <ul className="divide-y divide-border">
               {records.map((record) => (
@@ -87,8 +87,12 @@ export function ImportHistoryPanel() {
                       {record.file_name ? ` · ${record.file_name}` : ""}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      +{record.inserted_count} novo · ~{record.updated_count} ažurirano ·
-                      −{record.removed_count} uklonjeno · {record.row_count} redova u fajlu
+                      {t("upload.historyStats", {
+                        added: record.inserted_count,
+                        updated: record.updated_count,
+                        removed: record.removed_count,
+                        rows: record.row_count,
+                      })}
                     </p>
                   </div>
                   {record.has_snapshot ? (
@@ -100,10 +104,12 @@ export function ImportHistoryPanel() {
                       onClick={() => setRollbackId(record.id)}
                     >
                       <RotateCcw className="h-4 w-4" />
-                      Vrati snapshot
+                      {t("upload.rollback")}
                     </Button>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Nema snapshot-a</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t("upload.noSnapshot")}
+                    </span>
                   )}
                 </li>
               ))}
@@ -115,16 +121,11 @@ export function ImportHistoryPanel() {
       <ConfirmDialog
         open={Boolean(rollbackId)}
         onOpenChange={(open) => !open && setRollbackId(null)}
-        title="Vratiti prethodni cenovnik?"
+        title={t("upload.rollbackTitle")}
         description={
-          rollbackRecord ? (
-            <>
-              Vraća stanje proizvoda <strong>pre</strong> uvoza „{rollbackRecord.name}” (
-              {formatDate(rollbackRecord.uploaded_at)}). Trenutni katalog će biti zamenjen.
-            </>
-          ) : null
+          rollbackRecord ? t("upload.rollbackBody", { name: rollbackRecord.name }) : null
         }
-        confirmLabel="Vrati snapshot"
+        confirmLabel={t("upload.rollbackConfirm")}
         destructive
         loading={rollingBack}
         onConfirm={() => void confirmRollback()}

@@ -22,9 +22,11 @@ import type { QuoteWithItems } from "@/types";
 import { exportQuoteExcel } from "@/utils/export-excel";
 import { formatCurrency, formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { sumQuoteGross, sumQuoteNet } from "@/utils/prices";
 
 export default function QuoteDetailPage() {
+  const t = useTranslations();
   const params = useParams<{ id: string }>();
   const [quote, setQuote] = useState<QuoteWithItems | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,27 +40,27 @@ export default function QuoteDetailPage() {
         if (!res.ok) throw new Error(data.error);
         setQuote(data);
       } catch {
-        toast.error("Ponuda nije pronađena");
+        toast.error(t("quotes.notFound"));
       } finally {
         setLoading(false);
       }
     }
     if (params.id) void load();
-  }, [params.id]);
+  }, [params.id, t]);
 
   const quoteLabel = quote ? getQuoteLabel(quote) : "";
 
   const breadcrumbs = useMemo((): BreadcrumbItem[] | undefined => {
     if (!quote) return undefined;
     const items: BreadcrumbItem[] = [
-      { label: "Ponude", href: "/quotes" },
+      { label: t("quotes.title"), href: "/quotes" },
       { label: quoteLabel, href: `/quotes/${quote.id}` },
     ];
     if (pdfModalOpen) {
       items.push({ label: "PDF" });
     }
     return items;
-  }, [quote, quoteLabel, pdfModalOpen]);
+  }, [quote, quoteLabel, pdfModalOpen, t]);
 
   const totals = quote
     ? {
@@ -69,10 +71,10 @@ export default function QuoteDetailPage() {
 
   if (loading) {
     return (
-      <DashboardShell title="Ponuda" description="Učitavanje...">
+      <DashboardShell title={t("quotes.detailTitle")} description={t("common.loading")}>
         <div className="flex items-center justify-center py-24 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          Učitavanje ponude...
+          {t("quotes.loadingQuote")}
         </div>
       </DashboardShell>
     );
@@ -80,8 +82,8 @@ export default function QuoteDetailPage() {
 
   if (!quote) {
     return (
-      <DashboardShell title="Ponuda" description="Nije pronađena">
-        <p className="text-muted-foreground">Ponuda ne postoji.</p>
+      <DashboardShell title={t("quotes.detailTitle")} description={t("quotes.notFound")}>
+        <p className="text-muted-foreground">{t("quotes.notFoundPage")}</p>
       </DashboardShell>
     );
   }
@@ -100,18 +102,18 @@ export default function QuoteDetailPage() {
             onClick={() => window.print()}
           >
             <Printer className="h-4 w-4" />
-            Štampaj
+            {t("quotes.print")}
           </Button>
           <Button variant="outline" className="w-full sm:w-auto print:hidden" asChild>
             <Link href={`/quotes/${quote.id}/edit`}>
               <Pencil className="h-4 w-4" />
-              Uredi
+              {t("common.edit")}
             </Link>
           </Button>
           <Button variant="outline" className="w-full sm:w-auto print:hidden" asChild>
             <Link href={`/quotes/new?duplicate=${quote.id}`}>
               <Copy className="h-4 w-4" />
-              Duplikat
+              {t("quotes.duplicate")}
             </Link>
           </Button>
           <Button
@@ -120,7 +122,7 @@ export default function QuoteDetailPage() {
             onClick={() => setPdfModalOpen(true)}
           >
             <Download className="h-4 w-4" />
-            PDF
+            {t("quotes.pdf")}
           </Button>
           <Button
             variant="outline"
@@ -128,14 +130,14 @@ export default function QuoteDetailPage() {
             onClick={async () => {
               try {
                 await exportQuoteExcel(quote);
-                toast.success("Excel preuzet");
+                toast.success(t("quotes.excelDownloaded"));
               } catch {
-                toast.error("Excel export nije uspeo");
+                toast.error(t("quotes.excelFailed"));
               }
             }}
           >
             <FileSpreadsheet className="h-4 w-4" />
-            Excel
+            {t("quotes.excel")}
           </Button>
         </div>
       }
@@ -145,13 +147,15 @@ export default function QuoteDetailPage() {
         <p className="text-sm text-muted-foreground">{quote.customer_name}</p>
         <p className="text-xs text-muted-foreground">
           {formatDate(quote.created_at)}
-          {quote.valid_until ? ` · Važi do ${formatDate(quote.valid_until)}` : ""}
+          {quote.valid_until
+            ? ` · ${t("quotes.validUntilDate", { date: formatDate(quote.valid_until) })}`
+            : ""}
         </p>
       </div>
 
       {quote.valid_until ? (
         <p className="mb-4 text-sm text-muted-foreground no-print">
-          Važi do: {formatDate(quote.valid_until)}
+          {t("quotes.validUntilLabel")} {formatDate(quote.valid_until)}
         </p>
       ) : null}
 
@@ -163,20 +167,20 @@ export default function QuoteDetailPage() {
 
       <Card className="quote-print-card min-w-0 overflow-hidden">
         <CardHeader className="p-4 sm:p-6">
-          <CardTitle>Stavke</CardTitle>
+          <CardTitle>{t("quotes.items")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <QuoteDetailItems items={quote.items} />
           <div className="grid gap-4 border-t border-border bg-accent/25 px-4 py-4 sm:grid-cols-2 sm:px-6 sm:py-5">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Ukupno bez PDV
+                {t("quotes.totalExVat")}
               </p>
               <p className="mt-1 text-price text-xl">{formatCurrency(totals.net)}</p>
             </div>
             <div className="sm:text-right">
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Ukupno sa PDV
+                {t("quotes.totalIncVat")}
               </p>
               <p className="mt-1 text-price-total text-2xl">
                 {formatCurrency(totals.gross)}

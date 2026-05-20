@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -28,12 +29,16 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Potvrdi",
-  cancelLabel = "Otkaži",
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   loading = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  const t = useTranslations();
+  const confirm = confirmLabel ?? t("common.confirm");
+  const cancel = cancelLabel ?? t("common.cancel");
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -44,7 +49,7 @@ export function ConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>{cancel}</AlertDialogCancel>
           <AlertDialogAction
             disabled={loading}
             onClick={(e) => {
@@ -57,7 +62,7 @@ export function ConfirmDialog({
                 : undefined
             }
           >
-            {confirmLabel}
+            {confirm}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

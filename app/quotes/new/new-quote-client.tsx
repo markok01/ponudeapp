@@ -3,23 +3,26 @@
 import { useSearchParams } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 export default function NewQuotePageClient() {
+  const t = useTranslations();
   const searchParams = useSearchParams();
   const duplicateParam = searchParams.get("duplicate");
   const duplicateFromId = duplicateParam ? Number(duplicateParam) : undefined;
 
   return (
     <DashboardShell
-      title={duplicateFromId ? "Duplikat ponude" : "Nova ponuda"}
+      variant="workspace"
+      title={duplicateFromId ? t("quotes.duplicate") : t("quotes.newQuote")}
       description={
-        duplicateFromId
-          ? "Izmenite kupca i sačuvajte kao novu ponudu"
-          : "Kliknite proizvod u cenovniku da ga dodate u ponudu"
+        duplicateFromId ? t("quotes.duplicateHint") : t("quotes.catalogHint")
       }
       breadcrumbs={[
-        { label: "Ponude", href: "/quotes" },
-        { label: duplicateFromId ? "Duplikat" : "Nova ponuda" },
+        { label: t("quotes.title"), href: "/quotes" },
+        {
+          label: duplicateFromId ? t("quotes.duplicate") : t("quotes.newQuote"),
+        },
       ]}
     >
       <QuoteBuilder duplicateFromId={duplicateFromId} />

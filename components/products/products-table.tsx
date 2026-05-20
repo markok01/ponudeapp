@@ -10,11 +10,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductsHorecaTable } from "@/components/products/products-horeca-table";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { Product } from "@/types";
 
 const ALL_PRODUCTS_PAGE_SIZE = 50_000;
 
 export function ProductsTable() {
+  const t = useTranslations();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<string[]>([]);
@@ -50,11 +52,11 @@ export function ProductsTable() {
       setTotal(data.total ?? 0);
       setCategories(Array.isArray(data.categories) ? data.categories : []);
     } catch {
-      toast.error("Greška pri učitavanju cenovnika");
+      toast.error(t("products.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [showInactive, search, category]);
+  }, [showInactive, search, category, t]);
 
   useEffect(() => {
     void loadProducts();
@@ -73,7 +75,7 @@ export function ProductsTable() {
     const price = parseFloat(form.price.replace(",", "."));
     const pdv = parseFloat(form.pdv.replace(",", "."));
     if (Number.isNaN(price) || price < 0) {
-      toast.error("Unesite ispravnu cenu");
+      toast.error(t("products.invalidPrice"));
       return;
     }
 
@@ -92,12 +94,12 @@ export function ProductsTable() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("Proizvod dodat");
+      toast.success(t("products.productAdded"));
       setForm({ sku: "", name: "", category: "", price: "", pdv: "20" });
       setShowForm(false);
       void loadProducts();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Greška");
+      toast.error(error instanceof Error ? error.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -105,7 +107,7 @@ export function ProductsTable() {
 
   function handleExport() {
     window.open("/api/products/export", "_blank");
-    toast.success("Preuzimanje cenovnika...");
+    toast.success(t("products.exporting"));
   }
 
   return (
@@ -113,12 +115,12 @@ export function ProductsTable() {
       {showForm ? (
         <Card>
           <CardHeader>
-            <CardTitle>Dodaj proizvod</CardTitle>
+            <CardTitle>{t("products.addProduct")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="sku">Šifra</Label>
+                <Label htmlFor="sku">{t("products.sku")}</Label>
                 <Input
                   id="sku"
                   required
@@ -127,7 +129,7 @@ export function ProductsTable() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="name">Artikal</Label>
+                <Label htmlFor="name">{t("products.article")}</Label>
                 <Input
                   id="name"
                   required
@@ -136,16 +138,16 @@ export function ProductsTable() {
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="category">Brend / kategorija</Label>
+                <Label htmlFor="category">{t("products.brandCategory")}</Label>
                 <Input
                   id="category"
-                  placeholder="npr. MEGGLE / MEGGLE UVOZ"
+                  placeholder={t("products.brandExample")}
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="price">Cena bez PDV (p.c.)</Label>
+                <Label htmlFor="price">{t("products.priceExVat")}</Label>
                 <Input
                   id="price"
                   inputMode="decimal"
@@ -155,7 +157,7 @@ export function ProductsTable() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pdv">PDV %</Label>
+                <Label htmlFor="pdv">{t("products.vatPercent")}</Label>
                 <Input
                   id="pdv"
                   inputMode="decimal"
@@ -166,14 +168,14 @@ export function ProductsTable() {
               <div className="flex gap-2 md:col-span-2">
                 <Button type="submit" disabled={saving}>
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Sačuvaj
+                  {t("common.save")}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowForm(false)}
                 >
-                  Otkaži
+                  {t("common.cancel")}
                 </Button>
               </div>
             </form>
@@ -186,16 +188,16 @@ export function ProductsTable() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex flex-wrap items-center gap-2">
               <BookOpen className="h-4 w-4 shrink-0" />
-              Cenovnik
+              {t("products.priceList")}
             </CardTitle>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button variant="outline" className="w-full sm:w-auto" onClick={handleExport}>
                 <Download className="h-4 w-4" />
-                Export Excel
+                {t("products.exportExcel")}
               </Button>
               <Button className="w-full sm:w-auto" onClick={() => setShowForm((v) => !v)}>
                 <Plus className="h-4 w-4" />
-                Novi proizvod
+                {t("products.newProduct")}
               </Button>
             </div>
           </div>
@@ -214,20 +216,17 @@ export function ProductsTable() {
           {loading ? (
             <div className="flex items-center justify-center py-20 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Učitavanje...
+              {t("common.loading")}
             </div>
           ) : products.length === 0 ? (
             <EmptyState
               icon={PackageOpen}
-              title="Nema proizvoda"
-              description="Promenite filter ili uploadujte cenovnik."
+              title={t("products.noProducts")}
+              description={t("products.noProductsHint")}
             />
           ) : (
             <>
-              <p className="mb-3 text-xs text-muted-foreground">
-                Izmenite polja — pojaviće se upozorenje i dugmad{" "}
-                <strong>Poništi</strong> / <strong>Sačuvaj izmene</strong>.
-              </p>
+              <p className="mb-3 text-xs text-muted-foreground">{t("products.editHint")}</p>
               <ProductsHorecaTable
                 products={products}
                 onProductUpdated={handleProductUpdated}

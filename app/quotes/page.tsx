@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { Quote } from "@/types";
 import { getQuoteLabel } from "@/utils/format-quote-number";
 
 export default function QuotesPage() {
+  const t = useTranslations();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -27,11 +29,11 @@ export default function QuotesPage() {
       if (!res.ok) throw new Error(data.error);
       setQuotes(data);
     } catch {
-      toast.error("Greška pri učitavanju ponuda");
+      toast.error(t("quotes.listLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadQuotes();
@@ -46,10 +48,10 @@ export default function QuotesPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setQuotes((prev) => prev.filter((q) => q.id !== quote.id));
-      toast.success("Ponuda obrisana");
+      toast.success(t("quotes.deleted"));
       setPendingDelete(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Greška pri brisanju");
+      toast.error(error instanceof Error ? error.message : t("quotes.deleteFailed"));
     } finally {
       setDeletingId(null);
     }
@@ -57,11 +59,11 @@ export default function QuotesPage() {
 
   return (
     <DashboardShell
-      title="Ponude"
-      description="Lista svih kreiranih ponuda"
+      title={t("quotes.title")}
+      description={t("quotes.listDescription")}
       actions={
         <Button asChild className="w-full sm:w-auto">
-          <Link href="/quotes/new">Nova ponuda</Link>
+          <Link href="/quotes/new">{t("quotes.newQuote")}</Link>
         </Button>
       }
     >
@@ -70,16 +72,16 @@ export default function QuotesPage() {
           {loading ? (
             <div className="flex items-center justify-center py-20 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Učitavanje...
+              {t("common.loading")}
             </div>
           ) : quotes.length === 0 ? (
             <EmptyState
               icon={FileSpreadsheet}
-              title="Nema ponuda"
-              description="Kreirajte prvu ponudu za kupca."
+              title={t("quotes.noQuotes")}
+              description={t("quotes.noQuotesHint")}
               action={
                 <Button asChild>
-                  <Link href="/quotes/new">Nova ponuda</Link>
+                  <Link href="/quotes/new">{t("quotes.newQuote")}</Link>
                 </Button>
               }
             />
@@ -96,16 +98,18 @@ export default function QuotesPage() {
       <ConfirmDialog
         open={Boolean(pendingDelete)}
         onOpenChange={(open) => !open && setPendingDelete(null)}
-        title="Obrisati ponudu?"
+        title={t("quotes.deleteTitle")}
         description={
           pendingDelete ? (
             <>
-              Ponuda <strong>{getQuoteLabel(pendingDelete)}</strong> za kupca{" "}
-              <strong>{pendingDelete.customer_name}</strong> biće trajno obrisana.
+              {t("quotes.deleteBody", {
+                number: getQuoteLabel(pendingDelete),
+                customer: pendingDelete.customer_name,
+              })}
             </>
           ) : null
         }
-        confirmLabel="Obriši"
+        confirmLabel={t("common.delete")}
         destructive
         loading={deletingId !== null}
         onConfirm={() => void confirmDelete()}

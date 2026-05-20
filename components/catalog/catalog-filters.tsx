@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 interface CatalogFiltersProps {
   search: string;
@@ -31,13 +32,15 @@ export function CatalogFilters({
   showInactive,
   onShowInactiveChange,
 }: CatalogFiltersProps) {
+  const t = useTranslations();
+
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
       <div className="relative min-w-0 flex-1 sm:max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Pretraži šifru, naziv, brend..."
+          placeholder={t("catalog.searchPlaceholder")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="h-10 pl-9"
@@ -46,10 +49,10 @@ export function CatalogFilters({
       {categories.length > 0 ? (
         <Select value={category} onValueChange={onCategoryChange}>
           <SelectTrigger className="h-10 w-full sm:w-[180px]">
-            <SelectValue placeholder="Svi brendovi" />
+            <SelectValue placeholder={t("catalog.allBrands")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Svi brendovi</SelectItem>
+            <SelectItem value="all">{t("catalog.allBrands")}</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat}
@@ -66,12 +69,12 @@ export function CatalogFilters({
             onChange={(e) => onShowInactiveChange(e.target.checked)}
             className="h-4 w-4 rounded border-input"
           />
-          Prikaži neaktivne
+          {t("catalog.showInactive")}
         </label>
       ) : null}
       {resultCount !== undefined ? (
         <span className="text-xs text-muted-foreground sm:ml-auto">
-          {resultCount} proizvoda
+          {t("common.productsCount", { count: resultCount })}
         </span>
       ) : null}
     </div>

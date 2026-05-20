@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import type { QuoteWithItems } from "@/types";
 import { fetchAppSettings } from "@/lib/app-settings";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { generateQuotePDF } from "@/utils/generate-quote-pdf";
 
 export interface QuoteExportModalProps {
@@ -27,6 +28,7 @@ export function QuoteExportModal({
   open,
   onOpenChange,
 }: QuoteExportModalProps) {
+  const t = useTranslations();
   const [showTotalSummary, setShowTotalSummary] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -48,11 +50,11 @@ export function QuoteExportModal({
         companyName: settings.companyName || undefined,
       });
 
-      toast.success("PDF je preuzet");
+      toast.success(t("quotes.pdfDownloaded"));
       onOpenChange(false);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Generisanje PDF-a nije uspelo",
+        error instanceof Error ? error.message : t("quotes.pdfFailed"),
       );
     } finally {
       setExporting(false);
@@ -63,16 +65,13 @@ export function QuoteExportModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Export PDF ponude</DialogTitle>
-          <DialogDescription>
-            Prilagodite PDF pre preuzimanja. Logo se postavlja u Podešavanjima.
-          </DialogDescription>
+          <DialogTitle>{t("quotes.exportPdfTitle")}</DialogTitle>
+          <DialogDescription>{t("quotes.exportPdfDesc")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <p className="text-sm text-muted-foreground">
-            PDF sadrži: naziv artikla, mernu jedinicu, cenu bez PDV i cenu sa
-            PDV — obe cene sa uračunatim rabatom.
+            {t("quotes.exportPdfIncludesLong")}
           </p>
 
           <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-md)] border border-border bg-muted/40 px-4 py-3 transition-colors hover:bg-accent/40">
@@ -83,11 +82,9 @@ export function QuoteExportModal({
               className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
             />
             <div>
-              <span className="text-sm font-medium">
-                Prikaži ukupno na dnu PDF-a
-              </span>
+              <span className="text-sm font-medium">{t("quotes.showTotalPdf")}</span>
               <p className="text-xs text-muted-foreground">
-                Opciono — ukupan iznos sa PDV ispod tabele.
+                {t("quotes.totalPdfPlaceholder")}
               </p>
             </div>
           </label>
@@ -100,7 +97,7 @@ export function QuoteExportModal({
             onClick={() => onOpenChange(false)}
             disabled={exporting}
           >
-            Otkaži
+            {t("common.cancel")}
           </Button>
           <Button type="button" onClick={handleExport} disabled={exporting}>
             {exporting ? (
@@ -108,7 +105,7 @@ export function QuoteExportModal({
             ) : (
               <Download className="h-4 w-4" />
             )}
-            Export PDF
+            {t("quotes.exportPdf")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -12,6 +13,7 @@ interface BeforeInstallPromptEvent extends Event {
 const DISMISS_KEY = "ponudeapp-pwa-install-dismissed";
 
 export function PwaInstallBanner() {
+  const t = useTranslations();
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
@@ -71,15 +73,13 @@ export function PwaInstallBanner() {
           <Download className="h-5 w-5 text-primary" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Dodaj na početni ekran</p>
+          <p className="text-sm font-semibold">{t("pwa.installTitle")}</p>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            {isIosHint
-              ? "Safari → Share → Add to Home Screen — brži pristup u terenu."
-              : "Instaliraj aplikaciju za brži pristup ponudama i cenovniku."}
+            {isIosHint ? t("pwa.iosHint") : t("pwa.installDesc")}
           </p>
           {!isIosHint ? (
             <Button size="sm" className="mt-3" onClick={() => void install()}>
-              Instaliraj
+              {t("pwa.install")}
             </Button>
           ) : null}
         </div>
@@ -89,7 +89,7 @@ export function PwaInstallBanner() {
           size="icon"
           className="h-8 w-8 shrink-0"
           onClick={dismiss}
-          aria-label="Zatvori"
+          aria-label={t("common.close")}
         >
           <X className="h-4 w-4" />
         </Button>

@@ -1,6 +1,8 @@
 "use client";
 
 import { Check, Plus } from "lucide-react";
+import { ResizableColumnHead } from "@/components/quotes/resizable-column-head";
+import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
 import type { Product } from "@/types";
 import {
   formatPdvDisplay,
@@ -9,8 +11,9 @@ import {
   HORECA_BRAND_BG,
   HORECA_HEADER_BG,
 } from "@/utils/catalog-display";
-import { HorizontalScroll } from "@/components/ui/horizontal-scroll";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import type { CatalogColumnKey } from "@/lib/quote-workspace-layout";
 
 interface CatalogHorecaTableProps {
   products: Product[];
@@ -25,18 +28,27 @@ export function CatalogHorecaTable({
   activeProductId,
   onSelect,
 }: CatalogHorecaTableProps) {
-  const groups = groupProductsByCategory(products);
+  const t = useTranslations();
+  const { layout, resizeCatalogCol } = useQuoteWorkspaceLayout();
+  const groups = groupProductsByCategory(products, t("catalog.other"));
 
   if (!products.length) {
     return null;
   }
 
+  const cols = layout.catalogCols;
+  const rowH = layout.rowHeightPx;
+
   return (
-    <div className="catalog-scroll-wrap min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)] max-md:mx-0.5">
-      <p className="scroll-hint-label hidden px-3 pt-2 sm:px-4 md:block">Prevucite tabelu ulevo/desno →</p>
-      <HorizontalScroll hint={false}>
-        <div className="max-h-[min(62vh,520px)] overflow-y-auto overscroll-y-contain sm:max-h-[min(72vh,680px)] xl:max-h-[min(78vh,780px)]">
-        <table className="catalog-table w-full border-collapse text-sm md:min-w-[520px]">
+    <div className="catalog-scroll-wrap flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]">
+      <div className="catalog-scroll-area min-h-0 flex-1 overflow-auto overscroll-contain">
+        <table className="catalog-table w-full border-collapse" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: cols.sku }} />
+            <col style={{ width: cols.name }} />
+            <col style={{ width: cols.price }} />
+            <col style={{ width: cols.pdv }} />
+          </colgroup>
           <tbody>
             {groups.map((group) => (
               <GroupBlock
@@ -46,13 +58,53 @@ export function CatalogHorecaTable({
                 inQuoteIds={inQuoteIds}
                 activeProductId={activeProductId}
                 onSelect={onSelect}
+                rowH={rowH}
+                onResizeCol={resizeCatalogCol}
               />
             ))}
           </tbody>
         </table>
-        </div>
-      </HorizontalScroll>
+      </div>
     </div>
+  );
+}
+
+function CatalogDataCell({
+  colKey,
+  children,
+  className,
+  align = "left",
+}: {
+  colKey: CatalogColumnKey;
+  children: React.ReactNode;
+  className?: string;
+  align?: "left" | "center" | "right";
+}) {
+  const { layout, catalogCellMetrics } = useQuoteWorkspaceLayout();
+  const m = catalogCellMetrics(colKey);
+
+  return (
+    <td
+      className={cn(
+        "catalog-cell border border-border/40 align-top",
+        align === "center" && "text-center",
+        align === "right" && "text-right",
+        className,
+      )}
+      style={{
+        width: layout.catalogCols[colKey],
+        height: layout.rowHeightPx,
+        maxHeight: layout.rowHeightPx,
+        fontSize: m.fontPx,
+        lineHeight: 1.2,
+        paddingTop: m.paddingYPx,
+        paddingBottom: m.paddingYPx,
+        paddingLeft: 6,
+        paddingRight: 6,
+      }}
+    >
+      {children}
+    </td>
   );
 }
 
@@ -62,36 +114,59 @@ function GroupBlock({
   inQuoteIds,
   activeProductId,
   onSelect,
+  rowH,
+  onResizeCol,
 }: {
   groupLabel: string;
   products: Product[];
   inQuoteIds: Set<number>;
   activeProductId: number | null;
   onSelect: (product: Product) => void;
+  rowH: number;
+  onResizeCol: (key: CatalogColumnKey, delta: number) => void;
 }) {
+  const t = useTranslations();
+  const { catalogCellMetrics } = useQuoteWorkspaceLayout();
+  const brandMetrics = catalogCellMetrics("name");
+
   return (
     <>
       <tr className={HORECA_BRAND_BG}>
         <td
           colSpan={4}
-          className="border border-border/40 px-2 py-2 text-center text-xs font-bold uppercase tracking-wide sm:px-3 sm:py-2.5 sm:text-sm"
+          className="border border-border/40 px-2 text-center font-bold uppercase tracking-wide"
+          style={{
+            height: Math.max(24, rowH - 4),
+            fontSize: brandMetrics.fontPx,
+            paddingTop: brandMetrics.paddingYPx,
+            paddingBottom: brandMetrics.paddingYPx,
+          }}
         >
           {groupLabel}
         </td>
       </tr>
       <tr className={HORECA_HEADER_BG}>
-        <th className="catalog-col-sku catalog-cell w-[100px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          šifra
-        </th>
-        <th className="catalog-col-name catalog-cell border border-border/50 text-left font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          artikal
-        </th>
-        <th className="catalog-col-price catalog-cell w-[130px] border border-border/50 text-right font-bold tabular-nums max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          p.c.
-        </th>
-        <th className="catalog-col-pdv catalog-cell w-[56px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          PDV
-        </th>
+        <ResizableColumnHead
+          align="center"
+          onResize={(d) => onResizeCol("sku", d)}
+        >
+          {t("catalog.sku")}
+        </ResizableColumnHead>
+        <ResizableColumnHead onResize={(d) => onResizeCol("name", d)}>
+          {t("catalog.article")}
+        </ResizableColumnHead>
+        <ResizableColumnHead
+          align="right"
+          onResize={(d) => onResizeCol("price", d)}
+        >
+          {t("catalog.unitPrice")}
+        </ResizableColumnHead>
+        <ResizableColumnHead
+          align="center"
+          onResize={(d) => onResizeCol("pdv", d)}
+        >
+          {t("catalog.vat")}
+        </ResizableColumnHead>
       </tr>
       {products.map((product, index) => {
         const inQuote = inQuoteIds.has(product.id);
@@ -101,29 +176,35 @@ function GroupBlock({
           <tr
             key={product.id}
             className={cn(
-              "cursor-pointer transition-all duration-150",
+              "cursor-pointer transition-colors duration-100",
               index % 2 === 0 ? "bg-card" : "bg-muted/30",
-              isActive &&
-                "bg-primary/15 ring-2 ring-inset ring-primary shadow-sm",
-              !isActive && inQuote && "bg-emerald-50/90",
+              isActive && "bg-primary/15 ring-2 ring-inset ring-primary",
+              !isActive && inQuote && "bg-emerald-50/90 dark:bg-emerald-950/40",
               !isActive &&
                 !inQuote &&
                 "hover:bg-primary/8 hover:ring-1 hover:ring-inset hover:ring-primary/40",
             )}
+            style={{ height: rowH }}
             onClick={() => onSelect(product)}
           >
-            <td className="catalog-col-sku catalog-cell border border-border/40 font-mono text-muted-foreground max-md:px-1 md:px-2 md:py-2 md:text-xs">
+            <CatalogDataCell colKey="sku" className="font-mono text-muted-foreground">
               {product.sku}
-            </td>
-            <td className="catalog-col-name catalog-cell border border-border/40 text-left font-medium max-md:px-1 md:px-2 md:py-2 md:text-sm md:leading-snug">
-              <span className="catalog-cell-name">{product.name}</span>
-            </td>
-            <td className="catalog-col-price catalog-cell catalog-cell-price border border-border/40 text-right font-mono tabular-nums text-price max-md:px-0.5 md:px-2 md:py-2 md:text-sm">
+            </CatalogDataCell>
+            <CatalogDataCell colKey="name" className="font-medium">
+              <span className="catalog-cell-name block overflow-hidden text-ellipsis">
+                {product.name}
+              </span>
+            </CatalogDataCell>
+            <CatalogDataCell
+              colKey="price"
+              align="right"
+              className="font-mono tabular-nums text-price"
+            >
               {formatPriceHoreca(product.price)}
-            </td>
-            <td className="catalog-col-pdv catalog-cell border border-border/40 text-center text-muted-foreground max-md:px-0.5 md:px-2 md:py-2 md:text-sm">
+            </CatalogDataCell>
+            <CatalogDataCell colKey="pdv" align="center" className="text-muted-foreground">
               {formatPdvDisplay(product.pdv_percent)}
-            </td>
+            </CatalogDataCell>
           </tr>
         );
       })}
@@ -138,10 +219,12 @@ export function CatalogSelectionHint({
   activeProduct: Product | null;
   inQuoteCount: number;
 }) {
+  const t = useTranslations();
+
   if (!activeProduct && inQuoteCount === 0) {
     return (
       <p className="text-center text-xs text-muted-foreground">
-        Kliknite red u cenovniku da dodate stavku u ponudu
+        {t("catalog.clickToAdd")}
       </p>
     );
   }
@@ -151,13 +234,13 @@ export function CatalogSelectionHint({
       {activeProduct ? (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 font-medium text-primary">
           <Plus className="h-3 w-3" />
-          Poslednji izbor: {activeProduct.sku}
+          {t("catalog.lastPick", { sku: activeProduct.sku })}
         </span>
       ) : null}
       {inQuoteCount > 0 ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-800">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
           <Check className="h-3 w-3" />
-          {inQuoteCount} u ponudi
+          {t("catalog.inQuote", { count: inQuoteCount })}
         </span>
       ) : null}
     </div>

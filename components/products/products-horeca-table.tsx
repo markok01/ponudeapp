@@ -14,6 +14,8 @@ import {
 } from "@/utils/catalog-display";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { HorizontalScroll } from "@/components/ui/horizontal-scroll";
+import { useTranslations } from "@/lib/i18n/locale-provider";
+import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 
 const COL_COUNT = 6;
@@ -134,8 +136,9 @@ export function ProductsHorecaTable({
   onProductUpdated,
   onProductDeleted,
 }: ProductsHorecaTableProps) {
+  const t = useTranslations();
   const sorted = sortProductsCatalogOrder(products);
-  const groups = groupProductsByCategory(sorted);
+  const groups = groupProductsByCategory(sorted, t("catalog.other"));
 
   const [rowDrafts, setRowDrafts] = useState<Record<number, RowDraft>>({});
   const [brandDrafts, setBrandDrafts] = useState<Record<string, string>>({});
@@ -222,7 +225,7 @@ export function ProductsHorecaTable({
   function undoAllChanges() {
     setRowDrafts({ ...baselineRows });
     setBrandDrafts({ ...baselineBrands });
-    toast.message("Izmene poništene");
+    toast.message(t("products.changesUndone"));
   }
 
   async function saveAllChanges() {
@@ -237,7 +240,7 @@ export function ProductsHorecaTable({
         if (!dirtyBrandKeys.has(key)) continue;
 
         const nextCategory = (brandDrafts[key] ?? group.groupLabel).trim() || null;
-        const label = nextCategory ?? "Ostalo";
+        const label = nextCategory ?? t("catalog.other");
         for (const product of group.products) {
           const res = await fetch(`/api/products/${product.id}`, {
             method: "PATCH",
@@ -261,7 +264,7 @@ export function ProductsHorecaTable({
 
         const patch = buildPatchFromDraft(product, draft);
         if (!patch) {
-          toast.error(`Proizvod ${product.sku}: proverite šifru, naziv, cenu i PDV`);
+          toast.error(t("products.validateRow", { sku: product.sku }));
           continue;
         }
 
@@ -279,13 +282,15 @@ export function ProductsHorecaTable({
 
       if (savedCount > 0) {
         toast.success(
-          `Sačuvano: ${savedCount} izmen${savedCount === 1 ? "a" : "e"}`,
+          savedCount === 1
+            ? t("products.savedCountOne")
+            : t("products.savedCount", { count: savedCount }),
         );
       } else if (hasUnsavedChanges) {
-        toast.error("Nije sačuvano — proverite unete vrednosti");
+        toast.error(t("products.nothingSaved"));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Greška pri čuvanju");
+      toast.error(error instanceof Error ? error.message : t("products.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -312,7 +317,7 @@ export function ProductsHorecaTable({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(data.message ?? "Proizvod uklonjen");
+      toast.success(data.message ?? t("products.productRemoved"));
       onProductDeleted(product.id);
       setRowDrafts((prev) => {
         const next = { ...prev };
@@ -321,7 +326,7 @@ export function ProductsHorecaTable({
       });
       setPendingDelete(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Greška pri brisanju");
+      toast.error(error instanceof Error ? error.message : t("products.deleteFailed"));
     } finally {
       setDeletingId(null);
     }
@@ -332,7 +337,7 @@ export function ProductsHorecaTable({
   return (
     <div className="space-y-3 max-md:pb-24">
       <div className="catalog-scroll-wrap min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)] max-md:mx-0.5">
-        <p className="scroll-hint-label hidden px-3 pt-2 md:block">Prevucite tabelu ulevo/desno →</p>
+        <p className="scroll-hint-label hidden px-3 pt-2 md:block">{t("common.scrollHint")}</p>
         <HorizontalScroll hint={false}>
           <div className="max-h-[min(50vh,440px)] overflow-y-auto overscroll-y-contain sm:max-h-[min(58vh,520px)] lg:max-h-[min(68vh,640px)]">
           <table className="catalog-table catalog-table-products w-full border-collapse text-sm md:min-w-[820px]">
@@ -351,6 +356,7 @@ export function ProductsHorecaTable({
                   onRowDraftChange={updateRowDraft}
                   onBrandDraftChange={updateBrandDraft}
                   onDelete={requestDeleteProduct}
+                  t={t}
                 />
               ))}
             </tbody>
@@ -372,18 +378,16 @@ export function ProductsHorecaTable({
           {hasUnsavedChanges ? (
             <>
               <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
-                Imate nesačuvane izmene
+                {t("products.unsavedTitle")}
               </p>
               <p className="text-xs text-amber-800/90 dark:text-amber-200/80">
                 {changeCount === 1
-                  ? "1 izmena — sačuvajte ili poništite"
-                  : `${changeCount} izmene — sačuvajte ili poništite`}
+                  ? t("products.unsavedOne")
+                  : t("products.unsavedMany", { count: changeCount })}
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Nema izmena za čuvanje
-            </p>
+            <p className="text-sm text-muted-foreground">{t("products.noUnsaved")}</p>
           )}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
@@ -395,7 +399,7 @@ export function ProductsHorecaTable({
             disabled={!hasUnsavedChanges || saving}
           >
             <RotateCcw className="h-4 w-4" />
-            Poništi
+            {t("common.undo")}
           </Button>
           <Button
             type="button"
@@ -408,7 +412,7 @@ export function ProductsHorecaTable({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Sačuvaj izmene
+            {t("products.saveChanges")}
           </Button>
         </div>
       </div>
@@ -416,24 +420,27 @@ export function ProductsHorecaTable({
       <ConfirmDialog
         open={Boolean(pendingDelete)}
         onOpenChange={(open) => !open && setPendingDelete(null)}
-        title="Ukloniti proizvod?"
+        title={t("products.deleteTitle")}
         description={
           pendingDelete ? (
             <>
               <strong>{pendingDelete.name}</strong> ({pendingDelete.sku})
               {deleteQuoteCount > 0 ? (
                 <span className="mt-2 block text-amber-800 dark:text-amber-200">
-                  Proizvod je u {deleteQuoteCount}{" "}
-                  {deleteQuoteCount === 1 ? "ponudi" : "ponuda"} — biće{" "}
-                  <strong>deaktiviran</strong>, ne obrisan.
+                  {t(
+                    deleteQuoteCount === 1
+                      ? "products.deleteInQuotes"
+                      : "products.deleteInQuotesMany",
+                    { count: deleteQuoteCount },
+                  )}
                 </span>
               ) : (
-                <span className="mt-2 block">Proizvod će biti trajno obrisan.</span>
+                <span className="mt-2 block">{t("products.deletePermanent")}</span>
               )}
             </>
           ) : null
         }
-        confirmLabel={deleteQuoteCount > 0 ? "Deaktiviraj" : "Obriši"}
+        confirmLabel={deleteQuoteCount > 0 ? t("products.deactivate") : t("common.delete")}
         destructive
         loading={deletingId !== null}
         onConfirm={() => void confirmDeleteProduct()}
@@ -454,6 +461,7 @@ function EditableGroupBlock({
   onRowDraftChange,
   onBrandDraftChange,
   onDelete,
+  t,
 }: {
   groupLabel: string;
   groupKey: string;
@@ -466,6 +474,7 @@ function EditableGroupBlock({
   onRowDraftChange: (id: number, patch: Partial<RowDraft>) => void;
   onBrandDraftChange: (key: string, value: string) => void;
   onDelete: (product: Product) => void;
+  t: TranslateFn;
 }) {
   return (
     <>
@@ -480,7 +489,7 @@ function EditableGroupBlock({
               isBrandDirty && "ring-1 ring-inset ring-amber-300",
             )}
             value={brandDraft}
-            placeholder="Brend / kategorija"
+            placeholder={t("products.brandCategory")}
             onChange={(e) => onBrandDraftChange(gKey, e.target.value)}
             onClick={(e) => e.stopPropagation()}
           />
@@ -488,19 +497,19 @@ function EditableGroupBlock({
       </tr>
       <tr className={HORECA_HEADER_BG}>
         <th className="catalog-col-sku catalog-cell w-[88px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          šifra
+          {t("catalog.sku")}
         </th>
         <th className="catalog-col-name catalog-cell border border-border/50 text-left font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          artikal
+          {t("catalog.article")}
         </th>
         <th className="max-md:hidden w-[130px] border border-border/50 px-2 py-2 text-left text-xs font-bold">
-          brend
+          {t("catalog.brand")}
         </th>
         <th className="catalog-col-price catalog-cell w-[100px] border border-border/50 text-right font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          p.c.
+          {t("catalog.unitPrice")}
         </th>
         <th className="catalog-col-pdv catalog-cell w-[52px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
-          PDV
+          {t("catalog.vat")}
         </th>
         <th className="catalog-col-actions catalog-cell w-[44px] border border-border/50 text-center font-bold max-md:w-auto md:px-1 md:py-2 md:text-xs">
           {""}
@@ -516,6 +525,7 @@ function EditableGroupBlock({
           isDeleting={deletingId === product.id}
           onDraftChange={(patch) => onRowDraftChange(product.id, patch)}
           onDelete={() => onDelete(product)}
+          t={t}
         />
       ))}
     </>
@@ -530,6 +540,7 @@ function EditableProductRow({
   isDeleting,
   onDraftChange,
   onDelete,
+  t,
 }: {
   product: Product;
   draft: RowDraft;
@@ -538,6 +549,7 @@ function EditableProductRow({
   isDeleting: boolean;
   onDraftChange: (patch: Partial<RowDraft>) => void;
   onDelete: () => void;
+  t: TranslateFn;
 }) {
   const cellInputClass =
     "h-8 max-md:h-7 max-md:min-h-0 max-md:text-[11px] border-transparent bg-transparent px-1 py-1 text-sm shadow-none focus-visible:border-input focus-visible:bg-background focus-visible:ring-1";
@@ -570,7 +582,7 @@ function EditableProductRow({
         <Input
           className={cn(cellInputClass, "text-xs")}
           value={draft.category}
-          placeholder="Brend..."
+          placeholder={t("catalog.brandPlaceholder")}
           onChange={(e) => onDraftChange({ category: e.target.value })}
           onClick={(e) => e.stopPropagation()}
         />
@@ -601,7 +613,7 @@ function EditableProductRow({
           className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
           disabled={isDeleting}
           onClick={onDelete}
-          title="Obriši proizvod"
+          title={t("products.deleteProduct")}
         >
           {isDeleting ? (
             <Loader2 className="h-4 w-4 animate-spin" />

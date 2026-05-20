@@ -23,9 +23,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { convertPdfOnServer, downloadExcelBlob } from "@/lib/client-pdf-convert";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { ImportPreviewDiff } from "@/types";
 
 export default function UploadPage() {
+  const t = useTranslations();
   const router = useRouter();
 
   const [convertFile, setConvertFile] = useState<File | null>(null);
@@ -34,7 +36,7 @@ export default function UploadPage() {
   const [convertStatus, setConvertStatus] = useState("");
 
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importName, setImportName] = useState("Cenovnik");
+  const [importName, setImportName] = useState(t("upload.defaultListName"));
   const [importing, setImporting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [preview, setPreview] = useState<ImportPreviewDiff | null>(null);
@@ -42,13 +44,13 @@ export default function UploadPage() {
   async function handleConvert(e: React.FormEvent) {
     e.preventDefault();
     if (!convertFile) {
-      toast.error("Izaberite PDF");
+      toast.error(t("upload.selectPdf"));
       return;
     }
 
     setConverting(true);
     setConvertProgress(0);
-    setConvertStatus("Šaljem PDF na Render…");
+    setConvertStatus(t("upload.sendingPdf"));
     try {
       const { blob, fileName } = await convertPdfOnServer(convertFile, {
         baseName: "cenovnik",
@@ -56,13 +58,13 @@ export default function UploadPage() {
           setConvertProgress(p.progress);
           const last = p.logs[p.logs.length - 1];
           if (last) setConvertStatus(last);
-          else if (p.status === "processing") setConvertStatus("Render obrađuje PDF…");
+          else if (p.status === "processing") setConvertStatus(t("upload.renderProcessing"));
         },
       });
       downloadExcelBlob(blob, fileName);
-      toast.success("Excel preuzet.");
+      toast.success(t("upload.excelDownloaded"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Konverzija nije uspela");
+      toast.error(error instanceof Error ? error.message : t("upload.convertFailed"));
     } finally {
       setConverting(false);
       setConvertProgress(0);
@@ -72,7 +74,7 @@ export default function UploadPage() {
 
   async function handlePreview() {
     if (!importFile) {
-      toast.error("Izaberite Excel (.xlsx)");
+      toast.error(t("upload.selectExcel"));
       return;
     }
 
@@ -85,9 +87,9 @@ export default function UploadPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setPreview(data);
-      toast.success("Pregled spreman");
+      toast.success(t("upload.previewReady"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Pregled nije uspeo");
+      toast.error(error instanceof Error ? error.message : t("upload.previewFailed"));
     } finally {
       setPreviewing(false);
     }
@@ -96,7 +98,7 @@ export default function UploadPage() {
   async function handleImport(e: React.FormEvent) {
     e.preventDefault();
     if (!importFile) {
-      toast.error("Izaberite Excel (.xlsx)");
+      toast.error(t("upload.selectExcel"));
       return;
     }
 
@@ -111,13 +113,16 @@ export default function UploadPage() {
       if (!res.ok) throw new Error(data.error);
 
       toast.success(
-        `Cenovnik zamenjen: ${data.inserted + data.updated} proizvoda (uklonjeno ${data.removedOld ?? 0} starih).`,
+        t("upload.importSuccess", {
+          total: data.inserted + data.updated,
+          removed: data.removedOld ?? 0,
+        }),
       );
       setImportFile(null);
       setPreview(null);
       router.push("/products");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Uvoz nije uspeo");
+      toast.error(error instanceof Error ? error.message : t("upload.importFailed"));
     } finally {
       setImporting(false);
     }
@@ -125,8 +130,8 @@ export default function UploadPage() {
 
   return (
     <DashboardShell
-      title="Upload cenovnika"
-      description="Uvezite Excel cenovnik u bazu. PDF se može pretvoriti u Excel pre uvoza."
+      title={t("upload.title")}
+      description={t("upload.description")}
     >
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 sm:gap-6">
         <ImportHistoryPanel />
@@ -135,17 +140,14 @@ export default function UploadPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-primary" />
-              Uvoz Excel cenovnika
+              {t("upload.excelTitle")}
             </CardTitle>
-            <CardDescription>
-              Preporučeno: uvezite .xlsx fajl (HoReCa format). Stari katalog se zamenjuje
-              novim — snapshot pre uvoza omogućava rollback.
-            </CardDescription>
+            <CardDescription>{t("upload.excelDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleImport} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="import-name">Naziv cenovnika</Label>
+                <Label htmlFor="import-name">{t("upload.listName")}</Label>
                 <Input
                   id="import-name"
                   value={importName}
@@ -153,7 +155,7 @@ export default function UploadPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="import-file">Excel (.xlsx)</Label>
+                <Label htmlFor="import-file">{t("upload.excelFile")}</Label>
                 <Input
                   id="import-file"
                   type="file"
@@ -178,7 +180,7 @@ export default function UploadPage() {
                   ) : (
                     <Eye className="h-4 w-4" />
                   )}
-                  Pregled diff-a
+                  {t("upload.previewDiff")}
                 </Button>
                 <Button type="submit" disabled={importing} className="w-full sm:w-auto">
                   {importing ? (
@@ -186,23 +188,26 @@ export default function UploadPage() {
                   ) : (
                     <FileUp className="h-4 w-4" />
                   )}
-                  Uvezi u bazu
+                  {t("upload.importDb")}
                 </Button>
               </div>
 
               {preview ? (
                 <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm">
-                  <p className="font-medium">Pregled pre primene</p>
+                  <p className="font-medium">{t("upload.previewTitle")}</p>
                   <ul className="mt-2 space-y-1 text-muted-foreground">
-                    <li>Novo: {preview.added}</li>
-                    <li>Ažurirano: {preview.updated}</li>
-                    <li>Uklonjeno iz aktivnog kataloga: {preview.removed}</li>
-                    <li>Bez izmene: {preview.unchanged}</li>
+                    <li>{t("upload.previewAdded", { count: preview.added })}</li>
+                    <li>{t("upload.previewUpdated", { count: preview.updated })}</li>
+                    <li>{t("upload.previewRemoved", { count: preview.removed })}</li>
+                    <li>{t("upload.previewUnchanged", { count: preview.unchanged })}</li>
                   </ul>
                   {preview.sampleUpdated.length > 0 ? (
                     <p className="mt-3 text-xs">
-                      Primer cene: {preview.sampleUpdated[0].sku} —{" "}
-                      {preview.sampleUpdated[0].oldPrice} → {preview.sampleUpdated[0].newPrice} RSD
+                      {t("upload.priceExample", {
+                        sku: preview.sampleUpdated[0].sku,
+                        oldPrice: preview.sampleUpdated[0].oldPrice,
+                        newPrice: preview.sampleUpdated[0].newPrice,
+                      })}
                     </p>
                   ) : null}
                 </div>
@@ -215,18 +220,15 @@ export default function UploadPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <ArrowDownToLine className="h-4 w-4 text-muted-foreground" />
-              PDF → Excel (opciono)
+              {t("upload.pdfSection")}
             </CardTitle>
             <CardDescription>
-              Prvi put na Render free može trajati 1–2 min (servis se budi). U Render
-              Logs treba da se vidi{" "}
-              <code className="text-xs">POST /api/v1/convert</code>. HoReCa cenovnik:
-              specijalni parser. Za ostalo koristite{" "}
+              {t("upload.pdfSectionHint")}{" "}
               <a
                 href="/pdf-to-excel"
                 className="font-medium text-primary underline-offset-2 hover:underline"
               >
-                PDF → Excel
+                {t("upload.pdfSectionLink")}
               </a>
               .
             </CardDescription>
@@ -244,9 +246,9 @@ export default function UploadPage() {
                 {converting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {converting
                   ? convertProgress > 0
-                    ? `Konverzija ${convertProgress}%`
-                    : convertStatus || "Konverzija…"
-                  : "Preuzmi Excel"}
+                    ? t("upload.convertingPct", { pct: convertProgress })
+                    : convertStatus || t("upload.converting")
+                  : t("upload.downloadExcel")}
               </Button>
             </form>
           </CardContent>

@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { Quote } from "@/types";
 import { formatCurrency, formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
@@ -22,6 +23,8 @@ interface QuotesListProps {
 }
 
 export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
+  const t = useTranslations();
+
   return (
     <>
       <ul className="divide-y divide-border md:hidden">
@@ -45,7 +48,7 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
             </div>
             <div className="mt-4 flex gap-2">
               <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link href={`/quotes/${quote.id}`}>Detalji</Link>
+                <Link href={`/quotes/${quote.id}`}>{t("common.details")}</Link>
               </Button>
               <Button
                 type="button"
@@ -54,7 +57,7 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
                 className="shrink-0 text-destructive hover:bg-destructive/10"
                 disabled={deletingId === quote.id}
                 onClick={() => onDelete(quote)}
-                aria-label="Obriši ponudu"
+                aria-label={t("quotes.deleteAria")}
               >
                 {deletingId === quote.id ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -72,9 +75,9 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
           <TableHeader>
             <TableRow>
               <TableHead>#</TableHead>
-              <TableHead>Kupac</TableHead>
-              <TableHead>Datum</TableHead>
-              <TableHead className="text-right">Ukupno</TableHead>
+              <TableHead>{t("common.customer")}</TableHead>
+              <TableHead>{t("common.date")}</TableHead>
+              <TableHead className="text-right">{t("common.total")}</TableHead>
               <TableHead className="w-[180px]" />
             </TableRow>
           </TableHeader>
@@ -96,7 +99,7 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/quotes/${quote.id}`}>Detalji</Link>
+                      <Link href={`/quotes/${quote.id}`}>{t("common.details")}</Link>
                     </Button>
                     <Button
                       type="button"
@@ -105,6 +108,7 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
                       className="text-destructive hover:bg-destructive/10"
                       disabled={deletingId === quote.id}
                       onClick={() => onDelete(quote)}
+                      aria-label={t("quotes.deleteAria")}
                     >
                       {deletingId === quote.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

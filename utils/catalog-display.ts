@@ -35,14 +35,17 @@ export function sortProductsCatalogOrder(products: Product[]): Product[] {
  * Grupiše po brendu/kategoriji u redosledu iz fajla (bez abecednog sortiranja).
  * `products` treba da budu već sortirani po sort_order.
  */
-export function groupProductsByCategory(products: Product[]): {
+export function groupProductsByCategory(
+  products: Product[],
+  otherLabel = "Ostalo",
+): {
   groupLabel: string;
   products: Product[];
 }[] {
   const groups: { groupLabel: string; products: Product[] }[] = [];
 
   for (const product of products) {
-    const label = product.category?.trim() || "Ostalo";
+    const label = product.category?.trim() || otherLabel;
     const last = groups[groups.length - 1];
     if (last && last.groupLabel === label) {
       last.products.push(product);

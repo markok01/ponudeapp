@@ -12,35 +12,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 
-const cards = [
-  {
-    title: "Proizvodi",
-    description: "Pregledaj i upravljaj katalogom proizvoda.",
-    href: "/products",
-    icon: Package,
-  },
-  {
-    title: "Upload cenovnika",
-    description: "Uvezi Excel cenovnik i ažuriraj cene po SKU.",
-    href: "/upload",
-    icon: Upload,
-  },
-  {
-    title: "Nova ponuda",
-    description: "Kreiraj ponudu za kupca sa popustima.",
-    href: "/quotes/new",
-    icon: FileSpreadsheet,
-  },
-];
-
 export default function HomePage() {
+  const t = useTranslations();
+
+  const cards = [
+    {
+      title: t("home.productsTitle"),
+      description: t("home.productsDesc"),
+      href: "/products",
+      icon: Package,
+    },
+    {
+      title: t("home.uploadTitle"),
+      description: t("home.uploadDesc"),
+      href: "/upload",
+      icon: Upload,
+    },
+    {
+      title: t("home.newQuoteTitle"),
+      description: t("home.newQuoteDesc"),
+      href: "/quotes/new",
+      icon: FileSpreadsheet,
+    },
+  ];
+
   return (
-    <DashboardShell
-      title="Početna"
-      description="Premium radni prostor za cenovnike i ponude"
-    >
+    <DashboardShell title={t("home.title")} description={t("home.description")}>
       <motion.div
         className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
         variants={staggerContainer}
@@ -59,7 +59,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <Button asChild variant="outline" className="w-full sm:w-auto">
-                  <Link href={href}>Otvori</Link>
+                  <Link href={href}>{t("common.open")}</Link>
                 </Button>
               </CardContent>
             </Card>

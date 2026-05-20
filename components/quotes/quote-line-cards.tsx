@@ -32,7 +32,7 @@ export function QuoteLineCards({
   invalidDiscountIds = [],
 }: QuoteLineCardsProps) {
   return (
-    <div className="space-y-2 md:hidden">
+    <div className="quote-lines-cards space-y-2 lg:hidden">
       {lines.map((line) => {
         const netLine = quoteLineNetAfterDiscount(
           line.product.price,

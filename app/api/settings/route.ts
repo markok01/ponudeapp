@@ -32,6 +32,7 @@ export async function PUT(request: NextRequest) {
                 : String(body.logoDataUrl),
           }
         : {}),
+      ...(body.locale !== undefined ? { locale: body.locale } : {}),
     });
     return NextResponse.json(settings);
   } catch (error) {

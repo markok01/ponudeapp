@@ -2,16 +2,18 @@
 
 import { Toaster } from "sonner";
 import { SessionGuard } from "@/components/auth/session-guard";
+import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { PwaInstallBanner } from "@/components/pwa/install-banner";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      <SessionGuard />
-      {children}
-      <PwaInstallBanner />
-      <Toaster
+      <LocaleProvider>
+        <SessionGuard />
+        {children}
+        <PwaInstallBanner />
+        <Toaster
         position="top-right"
         toastOptions={{
           classNames: {
@@ -25,7 +27,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }}
         closeButton
         richColors
-      />
+        />
+      </LocaleProvider>
     </ThemeProvider>
   );
 }
