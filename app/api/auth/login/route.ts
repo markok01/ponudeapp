@@ -83,6 +83,40 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("POST /api/auth/login", error);
+    const message = error instanceof Error ? error.message : "";
+
+    if (message.includes("JWT_SECRET")) {
+      return NextResponse.json(
+        { error: "JWT_SECRET nije podešen na serveru (Vercel env)." },
+        { status: 500 },
+      );
+    }
+    if (
+      message.includes("MYSQL_HOST") ||
+      message.includes("MYSQL_PASSWORD") ||
+      message.includes("MYSQL_DATABASE") ||
+      message.includes("ECONNREFUSED") ||
+      message.includes("ENOTFOUND") ||
+      message.includes("Access denied")
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Greška konekcije na bazu. Proverite MYSQL_* env na Vercelu (Project, ne Shared).",
+        },
+        { status: 500 },
+      );
+    }
+    if (message.includes("users") || message.includes("ER_NO_SUCH_TABLE")) {
+      return NextResponse.json(
+        {
+          error:
+            "Tabela users ne postoji. Pokrenite create-user lokalno ili redeploy.",
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Prijava nije uspela" },
       { status: 500 },

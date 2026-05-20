@@ -70,6 +70,19 @@ async function ensureSchema(p: Pool): Promise<void> {
         if (code !== "ER_DUP_KEYNAME") throw error;
       }
 
+      await p.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          name VARCHAR(255) NOT NULL DEFAULT '',
+          role VARCHAR(20) NOT NULL DEFAULT 'user',
+          active TINYINT(1) NOT NULL DEFAULT 1,
+          session_version INT NOT NULL DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       try {
         await p.query(`ALTER TABLE quotes DROP COLUMN status`);
       } catch (error: unknown) {
@@ -96,15 +109,20 @@ function envBool(key: string): boolean {
 }
 
 function resolveSsl(host?: string): SslOptions | undefined {
-  const sslCa = process.env.MYSQL_SSL_CA;
+  const sslCaRaw = process.env.MYSQL_SSL_CA?.trim();
   const needsSsl =
-    sslCa ||
+    sslCaRaw ||
     envBool("SSL") ||
     host?.includes("aivencloud.com");
 
   if (!needsSsl) return undefined;
 
-  const ca = sslCa?.startsWith("-----BEGIN") ? sslCa : AIVEN_CA_CERT;
+  // Na Vercelu multiline MYSQL_SSL_CA često bude pokvaren — koristimo ugrađeni CA.
+  const ca =
+    sslCaRaw?.includes("-----BEGIN CERTIFICATE-----") &&
+    sslCaRaw.includes("-----END CERTIFICATE-----")
+      ? sslCaRaw
+      : AIVEN_CA_CERT;
 
   return {
     ca,

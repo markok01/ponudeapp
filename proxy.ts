@@ -13,6 +13,7 @@ function isPublicPath(pathname: string): boolean {
     return true;
   }
   if (pathname.startsWith("/api/auth")) return true;
+  if (pathname === "/api/health") return true;
   if (pathname.startsWith("/icons/")) return true;
   if (pathname === "/favicon.ico") return true;
   return false;
