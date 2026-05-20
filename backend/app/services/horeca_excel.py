@@ -90,7 +90,26 @@ def _write_row(ws, row_num: int, cells: list[str], kind: str, layout: str) -> No
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
 
+def _merge_horeca_sheets(sheets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Sve PDF stranice u jedan Excel tab."""
+    if len(sheets) <= 1:
+        if sheets:
+            sheets[0]["name"] = sheets[0].get("name") or "Cenovnik"
+        return sheets
+
+    layout = sheets[0].get("layout", "compact")
+    merged_rows: list[dict[str, Any]] = []
+    for idx, sheet_data in enumerate(sheets):
+        if idx > 0:
+            merged_rows.append({"kind": "raw", "cells": [], "layout": layout})
+        merged_rows.extend(sheet_data.get("rows", []))
+
+    return [{"name": "Cenovnik", "layout": layout, "rows": merged_rows}]
+
+
 def export_horeca_workbook(sheets: list[dict[str, Any]], output_path: Path) -> tuple[int, int]:
+    sheets = _merge_horeca_sheets(sheets)
+
     wb = Workbook()
     wb.remove(wb.active)
 

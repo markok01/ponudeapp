@@ -210,7 +210,7 @@ export function ProductsTable() {
             onShowInactiveChange={setShowInactive}
           />
         </CardHeader>
-        <CardContent className="min-w-0 p-4 sm:p-6">
+        <CardContent className="min-w-0 p-3 sm:p-6 max-md:px-2">
           {loading ? (
             <div className="flex items-center justify-center py-20 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

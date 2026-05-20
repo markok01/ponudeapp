@@ -24,7 +24,7 @@ const POLL_INTERVAL_MS = 1200;
 export function PdfConverterPanel() {
   const [file, setFile] = useState<File | null>(null);
   const [baseName, setBaseName] = useState("document");
-  const [exportMode, setExportMode] = useState<ExportMode>("multiple_sheets");
+  const [exportMode, setExportMode] = useState<ExportMode>("single_sheet");
   const [job, setJob] = useState<PdfConvertJob | null>(null);
   const [converting, setConverting] = useState(false);
   const [serviceOk, setServiceOk] = useState<boolean | null>(null);

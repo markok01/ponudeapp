@@ -5,14 +5,14 @@ import type { ExportMode } from "@/types/pdf-converter";
 
 const OPTIONS: { value: ExportMode; title: string; description: string }[] = [
   {
-    value: "multiple_sheets",
-    title: "Više sheetova",
-    description: "Svaka detektovana tabela u poseban Excel sheet",
-  },
-  {
     value: "single_sheet",
     title: "Jedan sheet",
-    description: "Sve tabele spojene u jedan sheet sa separatorima",
+    description: "Sve u jednom tabu (podrazumevano)",
+  },
+  {
+    value: "multiple_sheets",
+    title: "Više sheetova",
+    description: "Svaka tabela / stranica u poseban tab",
   },
   {
     value: "combined",

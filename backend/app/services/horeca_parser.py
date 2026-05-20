@@ -202,7 +202,7 @@ def run_horeca_pipeline(job, pdf_path: Path) -> None:
     if product_count < 1:
         raise RuntimeError("HoReCa PDF nema prepoznatih proizvoda")
 
-    job.log(f"Ukupno {product_count} proizvoda u {len(sheets)} sheet(ova)")
+    job.log(f"Ukupno {product_count} proizvoda sa {len(sheets)} stranica → jedan Excel tab")
 
     from app.config import settings
 

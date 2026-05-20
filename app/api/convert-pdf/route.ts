@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     if (remoteHealthy) {
       const result = await startPdfConversion(buffer, file.name, {
-        exportMode: "multiple_sheets",
+        exportMode: "single_sheet",
         baseName,
       });
       return NextResponse.json({ async: true, jobId: result.jobId, message: result.message });

@@ -119,14 +119,32 @@ function applyRowStyle(
   }
 }
 
+function mergeHorecaSheets(
+  sheets: { name: string; rows: HorecaExcelRow[]; layout: HorecaLayout }[],
+): { name: string; rows: HorecaExcelRow[]; layout: HorecaLayout }[] {
+  if (sheets.length <= 1) {
+    if (sheets[0]) return [{ ...sheets[0], name: sheets[0].name || "Cenovnik" }];
+    return sheets;
+  }
+  const layout = sheets[0]?.layout ?? "compact";
+  const rows: HorecaExcelRow[] = [];
+  for (let i = 0; i < sheets.length; i++) {
+    if (i > 0) rows.push({ kind: "raw", cells: [], layout });
+    rows.push(...sheets[i].rows);
+  }
+  return [{ name: "Cenovnik", rows, layout }];
+}
+
 export async function exportHorecaWorkbook(
   sheets: { name: string; rows: HorecaExcelRow[]; layout: HorecaLayout }[],
 ): Promise<Buffer> {
+  const mergedSheets = mergeHorecaSheets(sheets);
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "PonudeApp";
   workbook.created = new Date();
 
-  for (const { name, rows, layout } of sheets) {
+  for (const { name, rows, layout } of mergedSheets) {
     const colCount = columnCount(layout);
     const ws = workbook.addWorksheet(name.slice(0, 31));
 

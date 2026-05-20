@@ -21,11 +21,17 @@ export async function convertPdfOnServer(
   const formData = new FormData();
   formData.append("file", file);
   formData.append("baseName", options?.baseName ?? "cenovnik");
-  formData.append("exportMode", options?.exportMode ?? "multiple_sheets");
+  formData.append("exportMode", options?.exportMode ?? "single_sheet");
 
   const res = await fetch("/api/pdf-convert", { method: "POST", body: formData });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Konverzija nije uspela");
+  if (!res.ok) {
+    const hint =
+      res.status === 503
+        ? " Proverite /api/health → pdfConverter i env na Vercelu (ponudeapp projekat)."
+        : "";
+    throw new Error((data.error ?? "Konverzija nije uspela") + hint);
+  }
 
   if (data.sync && data.excelBase64) {
     const bytes = Uint8Array.from(atob(data.excelBase64), (c) => c.charCodeAt(0));

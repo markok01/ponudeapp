@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
-    const exportMode = (formData.get("exportMode") || "multiple_sheets") as ExportMode;
+    const exportMode = (formData.get("exportMode") || "single_sheet") as ExportMode;
     const baseName = String(formData.get("baseName") || "document");
 
     if (!file || !(file instanceof File)) {

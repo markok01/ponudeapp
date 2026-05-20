@@ -331,11 +331,11 @@ export function ProductsHorecaTable({
 
   return (
     <div className="space-y-3 max-md:pb-24">
-      <div className="min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]">
-        <p className="scroll-hint-label px-3 pt-2">Prevucite tabelu ulevo/desno →</p>
-        <HorizontalScroll>
+      <div className="catalog-scroll-wrap min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)] max-md:mx-0.5">
+        <p className="scroll-hint-label hidden px-3 pt-2 md:block">Prevucite tabelu ulevo/desno →</p>
+        <HorizontalScroll hint={false}>
           <div className="max-h-[min(50vh,440px)] overflow-y-auto overscroll-y-contain sm:max-h-[min(58vh,520px)] lg:max-h-[min(68vh,640px)]">
-          <table className="w-full min-w-[36rem] border-collapse text-sm sm:min-w-[820px]">
+          <table className="catalog-table catalog-table-products w-full border-collapse text-sm md:min-w-[820px]">
             <tbody>
               {groups.map((group) => (
                 <EditableGroupBlock
@@ -476,7 +476,7 @@ function EditableGroupBlock({
         >
           <Input
             className={cn(
-              "h-8 border-transparent bg-white/10 text-center text-sm font-bold uppercase tracking-wide text-white shadow-none placeholder:text-white/50 focus-visible:border-white/40 focus-visible:bg-white/15 focus-visible:ring-1 focus-visible:ring-white/50",
+              "h-8 max-md:h-9 max-md:text-xs border-transparent bg-white/10 text-center text-sm font-bold uppercase tracking-wide text-white shadow-none placeholder:text-white/50 focus-visible:border-white/40 focus-visible:bg-white/15 focus-visible:ring-1 focus-visible:ring-white/50",
               isBrandDirty && "ring-1 ring-inset ring-amber-300",
             )}
             value={brandDraft}
@@ -487,22 +487,22 @@ function EditableGroupBlock({
         </td>
       </tr>
       <tr className={HORECA_HEADER_BG}>
-        <th className="w-[88px] border border-border/50 px-2 py-2 text-center text-xs font-bold ">
+        <th className="catalog-col-sku catalog-cell w-[88px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
           šifra
         </th>
-        <th className="border border-border/50 px-2 py-2 text-left text-xs font-bold ">
+        <th className="catalog-col-name catalog-cell border border-border/50 text-left font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
           artikal
         </th>
-        <th className="w-[130px] border border-border/50 px-2 py-2 text-left text-xs font-bold ">
+        <th className="max-md:hidden w-[130px] border border-border/50 px-2 py-2 text-left text-xs font-bold">
           brend
         </th>
-        <th className="w-[100px] border border-border/50 px-2 py-2 text-right text-xs font-bold ">
+        <th className="catalog-col-price catalog-cell w-[100px] border border-border/50 text-right font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
           p.c.
         </th>
-        <th className="w-[52px] border border-border/50 px-2 py-2 text-center text-xs font-bold ">
+        <th className="catalog-col-pdv catalog-cell w-[52px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
           PDV
         </th>
-        <th className="w-[44px] border border-border/50 px-1 py-2 text-center text-xs font-bold ">
+        <th className="catalog-col-actions catalog-cell w-[44px] border border-border/50 text-center font-bold max-md:w-auto md:px-1 md:py-2 md:text-xs">
           {""}
         </th>
       </tr>
@@ -540,7 +540,7 @@ function EditableProductRow({
   onDelete: () => void;
 }) {
   const cellInputClass =
-    "h-8 border-transparent bg-transparent px-1 py-1 text-sm shadow-none focus-visible:border-input focus-visible:bg-background focus-visible:ring-1";
+    "h-8 max-md:h-7 max-md:min-h-0 max-md:text-[11px] border-transparent bg-transparent px-1 py-1 text-sm shadow-none focus-visible:border-input focus-visible:bg-background focus-visible:ring-1";
 
   return (
     <tr
@@ -550,7 +550,7 @@ function EditableProductRow({
         isDeleting && "opacity-50",
       )}
     >
-      <td className="border border-border/40 px-1 py-0.5">
+      <td className="catalog-col-sku catalog-cell border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
         <Input
           className={cn(cellInputClass, "font-mono text-xs")}
           value={draft.sku}
@@ -558,7 +558,7 @@ function EditableProductRow({
           onClick={(e) => e.stopPropagation()}
         />
       </td>
-      <td className="border border-border/40 px-1 py-0.5">
+      <td className="catalog-col-name catalog-cell border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
         <Input
           className={cellInputClass}
           value={draft.name}
@@ -566,7 +566,7 @@ function EditableProductRow({
           onClick={(e) => e.stopPropagation()}
         />
       </td>
-      <td className="border border-border/40 px-1 py-0.5">
+      <td className="max-md:hidden border border-border/40 px-1 py-0.5">
         <Input
           className={cn(cellInputClass, "text-xs")}
           value={draft.category}
@@ -575,7 +575,7 @@ function EditableProductRow({
           onClick={(e) => e.stopPropagation()}
         />
       </td>
-      <td className="border border-border/40 px-1 py-0.5">
+      <td className="catalog-col-price catalog-cell catalog-cell-price border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
         <Input
           className={cn(cellInputClass, "text-right font-mono text-xs")}
           inputMode="decimal"
@@ -584,7 +584,7 @@ function EditableProductRow({
           onClick={(e) => e.stopPropagation()}
         />
       </td>
-      <td className="border border-border/40 px-1 py-0.5">
+      <td className="catalog-col-pdv catalog-cell border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
         <Input
           className={cn(cellInputClass, "text-center text-xs")}
           inputMode="decimal"
@@ -593,7 +593,7 @@ function EditableProductRow({
           onClick={(e) => e.stopPropagation()}
         />
       </td>
-      <td className="border border-border/40 px-0.5 py-0.5 text-center">
+      <td className="catalog-col-actions catalog-cell border border-border/40 max-md:px-0 md:px-0.5 md:py-0.5 text-center">
         <Button
           type="button"
           variant="ghost"

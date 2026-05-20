@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthEnabled, isAuthRequired } from "@/lib/auth-config";
 import { query, resolveMysqlDatabase, type RowDataPacket } from "@/lib/db";
+import { checkPdfConverterHealth } from "@/services/pdf-converter-client";
 
 /** Brza dijagnostika deploy-a (bez osetljivih podataka). */
 export async function GET() {
@@ -37,6 +38,25 @@ export async function GET() {
     checks.db = "error";
     checks.dbMessage =
       error instanceof Error ? error.message.slice(0, 240) : "unknown";
+  }
+
+  const pdfUrl = process.env.PDF_CONVERTER_URL?.trim() ?? "";
+  checks.pdfConverterUrl = pdfUrl
+    ? pdfUrl.replace(/^https?:\/\//, "").split("/")[0]
+    : "(nije podešeno)";
+  checks.pdfConverterApiKey = Boolean(process.env.PDF_CONVERTER_API_KEY?.trim());
+
+  try {
+    const pdfHealth = await checkPdfConverterHealth();
+    checks.pdfConverter = pdfHealth ? "ok" : "unreachable";
+    if (pdfHealth) {
+      checks.pdfConverterOcr = pdfHealth.ocrEnabled;
+      checks.pdfConverterVersion = pdfHealth.version;
+    }
+  } catch (error) {
+    checks.pdfConverter = "error";
+    checks.pdfConverterMessage =
+      error instanceof Error ? error.message.slice(0, 200) : "unknown";
   }
 
   const ok =

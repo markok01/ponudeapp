@@ -20,6 +20,7 @@ export function HorizontalScroll({
           "overflow-x-auto overscroll-x-contain",
           "scroll-smooth [-webkit-overflow-scrolling:touch]",
           "touch-pan-x",
+          "max-md:scroll-px-2",
         )}
       >
         {children}

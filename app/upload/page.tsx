@@ -31,6 +31,7 @@ export default function UploadPage() {
   const [convertFile, setConvertFile] = useState<File | null>(null);
   const [converting, setConverting] = useState(false);
   const [convertProgress, setConvertProgress] = useState(0);
+  const [convertStatus, setConvertStatus] = useState("");
 
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importName, setImportName] = useState("Cenovnik");
@@ -47,10 +48,16 @@ export default function UploadPage() {
 
     setConverting(true);
     setConvertProgress(0);
+    setConvertStatus("Šaljem PDF na Render…");
     try {
       const { blob, fileName } = await convertPdfOnServer(convertFile, {
         baseName: "cenovnik",
-        onProgress: (p) => setConvertProgress(p.progress),
+        onProgress: (p) => {
+          setConvertProgress(p.progress);
+          const last = p.logs[p.logs.length - 1];
+          if (last) setConvertStatus(last);
+          else if (p.status === "processing") setConvertStatus("Render obrađuje PDF…");
+        },
       });
       downloadExcelBlob(blob, fileName);
       toast.success("Excel preuzet.");
@@ -59,6 +66,7 @@ export default function UploadPage() {
     } finally {
       setConverting(false);
       setConvertProgress(0);
+      setConvertStatus("");
     }
   }
 
@@ -210,7 +218,10 @@ export default function UploadPage() {
               PDF → Excel (opciono)
             </CardTitle>
             <CardDescription>
-              HoReCa cenovnik: specijalni parser. Za ostalo koristite{" "}
+              Prvi put na Render free može trajati 1–2 min (servis se budi). U Render
+              Logs treba da se vidi{" "}
+              <code className="text-xs">POST /api/v1/convert</code>. HoReCa cenovnik:
+              specijalni parser. Za ostalo koristite{" "}
               <a
                 href="/pdf-to-excel"
                 className="font-medium text-primary underline-offset-2 hover:underline"
@@ -234,7 +245,7 @@ export default function UploadPage() {
                 {converting
                   ? convertProgress > 0
                     ? `Konverzija ${convertProgress}%`
-                    : "Konverzija…"
+                    : convertStatus || "Konverzija…"
                   : "Preuzmi Excel"}
               </Button>
             </form>

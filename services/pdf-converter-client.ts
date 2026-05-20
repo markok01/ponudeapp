@@ -121,7 +121,14 @@ export async function startPdfConversion(
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new PdfConverterError(formatApiError(data) ?? "Konverzija nije uspela", res.status);
+      const detail = formatApiError(data) ?? "Konverzija nije uspela";
+      if (res.status === 401) {
+        throw new PdfConverterError(
+          "Pogrešan API ključ: PDF_CONVERTER_API_KEY na Vercelu mora biti isti kao API_KEY na Renderu.",
+          401,
+        );
+      }
+      throw new PdfConverterError(detail, res.status);
     }
 
     return {
@@ -179,7 +186,7 @@ export async function convertPdfRemotely(
   sheetCount: number | null;
 }> {
   const { timeoutMs } = getConverterConfig();
-  const exportMode = options.exportMode ?? "multiple_sheets";
+  const exportMode = options.exportMode ?? "single_sheet";
   const { jobId } = await startPdfConversion(file, fileName, {
     exportMode,
     baseName: options.baseName,

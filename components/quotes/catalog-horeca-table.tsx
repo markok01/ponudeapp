@@ -32,11 +32,11 @@ export function CatalogHorecaTable({
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]">
-      <p className="scroll-hint-label px-3 pt-2 sm:px-4">Prevucite tabelu ulevo/desno →</p>
-      <HorizontalScroll>
+    <div className="catalog-scroll-wrap min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)] max-md:mx-0.5">
+      <p className="scroll-hint-label hidden px-3 pt-2 sm:px-4 md:block">Prevucite tabelu ulevo/desno →</p>
+      <HorizontalScroll hint={false}>
         <div className="max-h-[min(62vh,520px)] overflow-y-auto overscroll-y-contain sm:max-h-[min(72vh,680px)] xl:max-h-[min(78vh,780px)]">
-        <table className="w-full min-w-[28rem] border-collapse text-sm sm:min-w-[520px]">
+        <table className="catalog-table w-full border-collapse text-sm md:min-w-[520px]">
           <tbody>
             {groups.map((group) => (
               <GroupBlock
@@ -74,22 +74,22 @@ function GroupBlock({
       <tr className={HORECA_BRAND_BG}>
         <td
           colSpan={4}
-          className="border border-border/40 px-3 py-2.5 text-center text-sm font-bold uppercase tracking-wide"
+          className="border border-border/40 px-2 py-2 text-center text-xs font-bold uppercase tracking-wide sm:px-3 sm:py-2.5 sm:text-sm"
         >
           {groupLabel}
         </td>
       </tr>
       <tr className={HORECA_HEADER_BG}>
-        <th className="w-[100px] border border-border/50 px-2 py-2 text-center text-xs font-bold">
+        <th className="catalog-col-sku catalog-cell w-[100px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
           šifra
         </th>
-        <th className="border border-border/50 px-2 py-2 text-left text-xs font-bold">
+        <th className="catalog-col-name catalog-cell border border-border/50 text-left font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
           artikal
         </th>
-        <th className="w-[130px] border border-border/50 px-2 py-2 text-right text-xs font-bold tabular-nums">
+        <th className="catalog-col-price catalog-cell w-[130px] border border-border/50 text-right font-bold tabular-nums max-md:w-auto md:px-2 md:py-2 md:text-xs">
           p.c.
         </th>
-        <th className="w-[56px] border border-border/50 px-2 py-2 text-center text-xs font-bold">
+        <th className="catalog-col-pdv catalog-cell w-[56px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
           PDV
         </th>
       </tr>
@@ -112,16 +112,16 @@ function GroupBlock({
             )}
             onClick={() => onSelect(product)}
           >
-            <td className="border border-border/40 px-2 py-2 font-mono text-xs text-muted-foreground">
+            <td className="catalog-col-sku catalog-cell border border-border/40 font-mono text-muted-foreground max-md:px-1 md:px-2 md:py-2 md:text-xs">
               {product.sku}
             </td>
-            <td className="border border-border/40 px-2 py-2 text-left text-sm font-medium leading-snug">
-              {product.name}
+            <td className="catalog-col-name catalog-cell border border-border/40 text-left font-medium max-md:px-1 md:px-2 md:py-2 md:text-sm md:leading-snug">
+              <span className="catalog-cell-name">{product.name}</span>
             </td>
-            <td className="border border-border/40 px-2 py-2 text-right font-mono text-sm tabular-nums text-price whitespace-nowrap">
+            <td className="catalog-col-price catalog-cell catalog-cell-price border border-border/40 text-right font-mono tabular-nums text-price max-md:px-0.5 md:px-2 md:py-2 md:text-sm">
               {formatPriceHoreca(product.price)}
             </td>
-            <td className="border border-border/40 px-2 py-2 text-center text-sm text-muted-foreground">
+            <td className="catalog-col-pdv catalog-cell border border-border/40 text-center text-muted-foreground max-md:px-0.5 md:px-2 md:py-2 md:text-sm">
               {formatPdvDisplay(product.pdv_percent)}
             </td>
           </tr>

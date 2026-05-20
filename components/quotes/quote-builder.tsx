@@ -438,7 +438,7 @@ export function QuoteBuilder({
               resultCount={catalogTotal}
             />
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 max-md:px-2 sm:px-6">
             {loading && !allProducts.length ? (
               <div className="flex justify-center py-16 text-muted-foreground">
                 <Loader2 className="h-6 w-6 animate-spin" />

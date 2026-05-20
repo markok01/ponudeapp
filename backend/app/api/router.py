@@ -45,7 +45,7 @@ async def health() -> HealthResponse:
 @router.post("/convert", response_model=ConvertResponse)
 async def convert_pdf(
     file: UploadFile = File(...),
-    export_mode: ExportMode = Form(ExportMode.MULTIPLE_SHEETS),
+    export_mode: ExportMode = Form(ExportMode.SINGLE_SHEET),
     base_name: str = Form("document"),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ) -> ConvertResponse:
