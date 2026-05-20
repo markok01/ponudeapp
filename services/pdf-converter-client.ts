@@ -196,8 +196,8 @@ export async function convertPdfRemotely(
       return {
         buffer: downloaded.buffer,
         fileName: downloaded.fileName,
-        rowCount: job.rowCount,
-        sheetCount: job.sheetCount,
+        rowCount: job.rowCount ?? null,
+        sheetCount: job.sheetCount ?? null,
       };
     }
 
