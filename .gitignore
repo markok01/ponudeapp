@@ -31,7 +31,15 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.*.local
+
+# Uzorci cenovnika (lokalno)
+HoReCa*.pdf
+HoReCa*.xlsx
+samples/
+certs/
 
 # vercel
 .vercel

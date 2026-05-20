@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PonudeApp">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7ba3f5"/>
+      <stop offset="100%" stop-color="#5b8def"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path fill="#ffffff" d="M148 148h216c44 0 80 36 80 80s-36 80-80 80H212v56H148V148zm64 64v64h84c17.7 0 32-14.3 32-32s-14.3-32-32-32h-84z"/>
+</svg>

@@ -1,26 +1,329 @@
 @import "tailwindcss";
 
+/* ─── Premium pastel design tokens ─── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f8fc;
+  --foreground: #2c3345;
+  --card: #ffffff;
+  --card-foreground: #2c3345;
+  --popover: #ffffff;
+  --popover-foreground: #2c3345;
+  --primary: #5b8def;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f8;
+  --secondary-foreground: #3d4659;
+  --muted: #f0f2f7;
+  --muted-foreground: #6b7289;
+  --accent: #e8f0fe;
+  --accent-foreground: #3b5bdb;
+  --destructive: #e85d6a;
+  --destructive-foreground: #ffffff;
+  --success: #3d9b7a;
+  --success-foreground: #ffffff;
+  --border: #e4e8f2;
+  --input: #dce2ee;
+  --ring: #7ba3f5;
+  --radius: 0.875rem;
+  --shadow-soft: 0 1px 2px rgba(44, 51, 69, 0.04), 0 8px 24px rgba(91, 141, 239, 0.06);
+  --shadow-card: 0 1px 3px rgba(44, 51, 69, 0.05), 0 12px 32px rgba(44, 51, 69, 0.06);
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --sidebar: rgba(255, 255, 255, 0.78);
+  --navbar: rgba(255, 255, 255, 0.82);
+  --price: #3b5bdb;
+  --price-total: #2f4eb8;
+  --horeca-brand: #a89bc9;
+  --horeca-header: #d4cce8;
+}
+
+.dark {
+  --background: #1a1d26;
+  --foreground: #e8ecf4;
+  --card: #232733;
+  --card-foreground: #e8ecf4;
+  --popover: #262b38;
+  --popover-foreground: #e8ecf4;
+  --primary: #7ba3f5;
+  --primary-foreground: #1a1d26;
+  --secondary: #2d3342;
+  --secondary-foreground: #c5cce0;
+  --muted: #2a2f3d;
+  --muted-foreground: #9aa3b8;
+  --accent: #2e3a52;
+  --accent-foreground: #a8c4f8;
+  --destructive: #f0717f;
+  --destructive-foreground: #1a1d26;
+  --success: #5cb896;
+  --success-foreground: #1a1d26;
+  --border: #353b4a;
+  --input: #3d4455;
+  --ring: #7ba3f5;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(123, 163, 245, 0.08);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.25), 0 12px 32px rgba(0, 0, 0, 0.2);
+  --glass: rgba(35, 39, 51, 0.85);
+  --glass-border: rgba(53, 59, 74, 0.9);
+  --sidebar: rgba(30, 34, 44, 0.92);
+  --navbar: rgba(30, 34, 44, 0.88);
+  --price: #9ebaf7;
+  --price-total: #c5d8fc;
+  --horeca-brand: #7a6d96;
+  --horeca-header: #4a4558;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-price: var(--price);
+  --color-price-total: var(--price-total);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html {
+  overflow-x: hidden;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* Veći touch targeti na mobilnom */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea,
+  button:not([class*="h-"]) {
+    min-height: 2.75rem;
+  }
+}
+
+/* Hint za horizontalni skrol tabela */
+.scroll-hint-label {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  padding: 0 0 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .scroll-hint-label {
+    display: none;
+  }
+}
+
+/* App shell backgrounds */
+.dashboard-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(91, 141, 239, 0.09), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 95% 5%, rgba(167, 182, 230, 0.12), transparent 45%),
+    var(--background);
+}
+
+.dark .dashboard-bg {
+  background:
+    radial-gradient(ellipse 70% 45% at 15% -5%, rgba(123, 163, 245, 0.12), transparent 50%),
+    radial-gradient(ellipse 50% 35% at 90% 10%, rgba(120, 140, 200, 0.08), transparent 40%),
+    var(--background);
+}
+
+.glass-panel {
+  background: var(--sidebar);
+  border-color: var(--glass-border);
+}
+
+.glass-navbar {
+  background: var(--navbar);
+  border-color: var(--border);
+}
+
+/* Typography utilities */
+.text-price {
+  color: var(--price);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.text-price-total {
+  color: var(--price-total);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Subtle animations */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    var(--secondary) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Sonner toast overrides */
+[data-sonner-toaster] {
+  --normal-bg: var(--card);
+  --normal-border: var(--border);
+  --normal-text: var(--foreground);
+}
+
+/* ─── Print: detalj ponude ─── */
+@media print {
+  @page {
+    margin: 12mm;
+    size: A4;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    font-size: 11pt;
+  }
+
+  .dashboard-bg {
+    background: #fff !important;
+    min-height: auto !important;
+  }
+
+  .app-sidebar,
+  .app-overlay,
+  .app-menu-btn,
+  .app-header-actions,
+  .glass-navbar button,
+  [data-sonner-toaster],
+  .no-print {
+    display: none !important;
+  }
+
+  .app-header {
+    position: static !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 0 1rem !important;
+    box-shadow: none !important;
+  }
+
+  .app-header h2 {
+    font-size: 1.35rem !important;
+  }
+
+  .print-description {
+    color: #444 !important;
+  }
+
+  .print-breadcrumbs {
+    margin-bottom: 0.35rem !important;
+  }
+
+  .quote-detail-print main {
+    padding: 0 !important;
+  }
+
+  .quote-print-header {
+    display: block !important;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .quote-print-only {
+    display: block !important;
+  }
+
+  .quote-print-card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .quote-print-card .scroll-hint-label {
+    display: none !important;
+  }
+
+  .text-price,
+  .text-price-total {
+    color: #1e3a8a !important;
+  }
+}
+
+.quote-print-header,
+.quote-print-only {
+  display: none;
+}
+

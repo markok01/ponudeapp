@@ -1,0 +1,91 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  authenticateUser,
+  countUsers,
+} from "@/services/users";
+import {
+  createSessionToken,
+  getSessionMaxAgeSec,
+  isAuthEnabled,
+  isAuthRequired,
+  isLegacyPasswordAuth,
+  sessionCookieOptions,
+  SESSION_COOKIE,
+  verifyAppPassword,
+} from "@/lib/auth";
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!isAuthEnabled()) {
+      return NextResponse.json({ ok: true, authEnabled: false });
+    }
+
+    const body = await request.json();
+    const remember = body.remember !== false;
+    const maxAgeSec = getSessionMaxAgeSec(remember);
+
+    if (isLegacyPasswordAuth()) {
+      const password = String(body.password ?? "");
+      if (!verifyAppPassword(password)) {
+        return NextResponse.json({ error: "Pogrešna lozinka" }, { status: 401 });
+      }
+      const token = createSessionToken({ id: 0, email: "legacy@app" }, maxAgeSec);
+      const response = NextResponse.json({ ok: true, authEnabled: true, legacy: true });
+      response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(maxAgeSec));
+      return response;
+    }
+
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const password = String(body.password ?? "");
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email i lozinka su obavezni" },
+        { status: 400 },
+      );
+    }
+
+    if (isAuthRequired()) {
+      const total = await countUsers();
+      if (total === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Nema kreiranih naloga. Pokrenite: node scripts/create-user.mjs",
+          },
+          { status: 503 },
+        );
+      }
+    }
+
+    const user = await authenticateUser(email, password);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Pogrešan email ili lozinka" },
+        { status: 401 },
+      );
+    }
+
+    const token = createSessionToken(
+      {
+        id: user.id,
+        email: user.email,
+        sessionVersion: user.session_version,
+      },
+      maxAgeSec,
+    );
+    const response = NextResponse.json({
+      ok: true,
+      authEnabled: true,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    });
+    response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(maxAgeSec));
+    return response;
+  } catch (error) {
+    console.error("POST /api/auth/login", error);
+    return NextResponse.json(
+      { error: "Prijava nije uspela" },
+      { status: 500 },
+    );
+  }
+}
