@@ -4,11 +4,17 @@ import {
   countUsers,
 } from "@/services/users";
 import {
+  createUserSession,
+  DeviceLimitError,
+  revokeUserSession,
+} from "@/services/user-sessions";
+import {
   createSessionToken,
   getSessionMaxAgeSec,
   isAuthEnabled,
   isAuthRequired,
   isLegacyPasswordAuth,
+  parseSessionToken,
   sessionCookieOptions,
   SESSION_COOKIE,
   verifyAppPassword,
@@ -66,11 +72,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const existingToken = request.cookies.get(SESSION_COOKIE)?.value;
+    const existing = parseSessionToken(existingToken);
+    if (existing?.userId === user.id && existing.sid) {
+      await revokeUserSession(existing.sid);
+    }
+
+    let sessionId: string;
+    try {
+      sessionId = await createUserSession(user.id, maxAgeSec);
+    } catch (err) {
+      if (err instanceof DeviceLimitError) {
+        return NextResponse.json(
+          { error: err.message, code: err.code },
+          { status: 403 },
+        );
+      }
+      throw err;
+    }
     const token = createSessionToken(
       {
         id: user.id,
         email: user.email,
         sessionVersion: user.session_version,
+        sessionId,
       },
       maxAgeSec,
     );

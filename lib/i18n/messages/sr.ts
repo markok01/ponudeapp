@@ -61,6 +61,8 @@ export const messagesSr = {
     signInSuccess: "Uspešna prijava",
     signInFailed: "Prijava nije uspela",
     sessionRevoked: "Sesija je prekinuta. Prijavite se ponovo.",
+    deviceLimit:
+      "Ovaj nalog je već na maksimalnom broju uređaja. Odjavite se na jednom od njih pa pokušajte ponovo.",
     notSignedIn: "Niste prijavljeni",
     adminNote: "Nalog kreira samo administrator (nema „Registruj se”).",
   },
@@ -85,7 +87,7 @@ export const messagesSr = {
     saveFailed: "Čuvanje nije uspelo",
     usersTitle: "Korisnici (whitelist)",
     usersHelp:
-      "Samo ovi nalozi mogu da se uloguju. Limit naloga kontroliše MAX_USERS.",
+      "Maks. 3 naloga (različiti emailovi). Svaki nalog može biti ulogovan na najviše 2 uređaja istovremeno.",
     addUser: "Dodaj korisnika",
     userName: "Ime",
     userRole: "Uloga",

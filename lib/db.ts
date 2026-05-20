@@ -83,6 +83,18 @@ async function ensureSchema(p: Pool): Promise<void> {
         )
       `);
 
+      await p.query(`
+        CREATE TABLE IF NOT EXISTS user_sessions (
+          id VARCHAR(36) PRIMARY KEY,
+          user_id INT NOT NULL,
+          expires_at DATETIME NOT NULL,
+          last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_user_sessions_user (user_id),
+          INDEX idx_user_sessions_expires (expires_at)
+        )
+      `);
+
       try {
         await p.query(`ALTER TABLE quotes DROP COLUMN status`);
       } catch (error: unknown) {

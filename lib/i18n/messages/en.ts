@@ -63,6 +63,8 @@ export const messagesEn: Messages = {
     signInSuccess: "Signed in successfully",
     signInFailed: "Sign in failed",
     sessionRevoked: "Session ended. Please sign in again.",
+    deviceLimit:
+      "This account is already signed in on the maximum number of devices. Sign out on one of them and try again.",
     notSignedIn: "You are not signed in",
     adminNote: "Accounts are created by an administrator only.",
   },
@@ -87,7 +89,7 @@ export const messagesEn: Messages = {
     saveFailed: "Save failed",
     usersTitle: "Users (whitelist)",
     usersHelp:
-      "Only these accounts can sign in. Account limit is controlled by MAX_USERS.",
+      "Up to 3 accounts (unique emails). Each account can stay signed in on at most 2 devices at once.",
     addUser: "Add user",
     userName: "Name",
     userRole: "Role",

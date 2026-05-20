@@ -9,6 +9,10 @@ import {
   clearSessionCookieOptions,
 } from "@/lib/auth-config";
 import { getUserById } from "@/services/users";
+import {
+  getValidUserSession,
+  touchUserSession,
+} from "@/services/user-sessions";
 
 export {
   clearSessionCookieOptions,
@@ -20,12 +24,14 @@ export {
   sessionCookieOptions,
 } from "@/lib/auth-config";
 
-const TOKEN_VERSION = 3;
+const TOKEN_VERSION = 4;
 
 export interface SessionPayload {
   v: number;
   userId: number;
   email: string;
+  /** ID sesije u user_sessions (jedan uređaj/pregledač) */
+  sid?: string;
   /** Brojač sesije — povećava se pri deaktivaciji */
   sv: number;
   exp: number;
@@ -48,6 +54,7 @@ export function createSessionToken(
     id: number;
     email: string;
     sessionVersion?: number;
+    sessionId?: string;
   },
   maxAgeSec = getSessionMaxAgeSec(true),
 ): string {
@@ -55,6 +62,7 @@ export function createSessionToken(
     v: TOKEN_VERSION,
     userId: user.id,
     email: user.email,
+    ...(user.sessionId ? { sid: user.sessionId } : {}),
     sv: user.sessionVersion ?? 1,
     exp: Math.floor(Date.now() / 1000) + maxAgeSec,
   };
@@ -90,6 +98,9 @@ export function parseSessionToken(
       !payload.email ||
       typeof payload.sv !== "number"
     ) {
+      return null;
+    }
+    if (payload.userId > 0 && !payload.sid) {
       return null;
     }
     if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) {
@@ -137,6 +148,13 @@ export async function getSessionUser(): Promise<{
   const user = await getUserById(payload.userId);
   if (!user || !user.active) return null;
   if (payload.sv !== user.session_version) return null;
+
+  if (payload.userId > 0) {
+    if (!payload.sid) return null;
+    const valid = await getValidUserSession(payload.sid, payload.userId);
+    if (!valid) return null;
+    await touchUserSession(payload.sid);
+  }
 
   return {
     id: user.id,

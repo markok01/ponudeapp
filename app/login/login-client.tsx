@@ -44,8 +44,14 @@ export default function LoginPageClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, remember }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = (await res.json()) as { error?: string; code?: string };
+      if (!res.ok) {
+        if (data.code === "device_limit") {
+          toast.error(t("auth.deviceLimit"));
+          return;
+        }
+        throw new Error(data.error);
+      }
 
       toast.success(t("auth.signInSuccess"));
       router.replace(next);

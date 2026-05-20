@@ -1,5 +1,6 @@
 import { execute, query, type RowDataPacket } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { revokeAllUserSessions } from "@/services/user-sessions";
 
 export type UserRole = "admin" | "user";
 
@@ -123,6 +124,7 @@ export async function listUsers(): Promise<AppUser[]> {
 }
 
 export async function deactivateUser(id: number): Promise<void> {
+  await revokeAllUserSessions(id);
   await execute(
     `UPDATE users SET active = 0, session_version = session_version + 1 WHERE id = ?`,
     [id],
