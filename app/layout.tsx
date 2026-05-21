@@ -34,6 +34,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  /** Tastatura na mobilnom smanjuje layout umesto da prekrije sadržaj */
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f7f8fc" },
     { media: "(prefers-color-scheme: dark)", color: "#1a1d26" },

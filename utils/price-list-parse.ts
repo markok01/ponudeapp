@@ -9,6 +9,7 @@ import {
   isLikelyPriceRaw,
   isPackColumn,
   isPdvColumnRaw,
+  isPdvValueAsPrice,
   isSubBrandRow,
   normalizeHeaderKey,
   parsePdvPercent,
@@ -187,9 +188,37 @@ export async function parsePdfToRows(buffer: Buffer): Promise<PriceListRow[]> {
   return parsePdfTextToRows(text);
 }
 
+function headerHasNovaColumn(cells: string[]): boolean {
+  return cells.some((cell) => {
+    const key = normalizeHeaderKey(cell);
+    return key.includes("sifr") && key.includes("ova");
+  });
+}
+
+/** Skraćeni header (šifra | artikal | tr.pak | p.c | PDV) — u podacima i dalje postoji nova šifra u koloni B. */
+function adjustColsForImplicitNova(
+  mapped: Partial<Record<ColumnKind, number>>,
+  cells: string[],
+): Partial<Record<ColumnKind, number>> {
+  if (headerHasNovaColumn(cells) || mapped.sku !== 1 || mapped.name !== 2) {
+    return mapped;
+  }
+
+  const price = mapped.price === 4 ? 5 : (mapped.price ?? 5);
+  const pdv = mapped.pdv === 5 ? 6 : (mapped.pdv ?? price + 1);
+
+  return {
+    ...mapped,
+    novaSifra: 2,
+    name: 3,
+    price,
+    pdv,
+  };
+}
+
 function colsFromHeader(cells: string[]): Partial<Record<ColumnKind, number>> | null {
   if (!isHeaderRowCells(cells)) return null;
-  const mapped = buildHeaderMap(cells);
+  const mapped = adjustColsForImplicitNova(buildHeaderMap(cells), cells);
   if (!mapped.name || !mapped.price) return null;
 
   const pdv =
@@ -240,6 +269,18 @@ function findSheetColumns(sheet: ExcelJS.Worksheet): Partial<Record<ColumnKind, 
   return detectLayoutHeuristic(sheet);
 }
 
+function pickProductName(
+  value: string,
+  sku: string,
+  novaSifra: string,
+): string {
+  const v = value.trim();
+  if (!v || v === sku || v === novaSifra) return "";
+  if (isPackColumn(v)) return "";
+  if (/^\d{4,7}$/.test(v)) return "";
+  return v;
+}
+
 function resolveProductName(
   row: ExcelJS.Row,
   cols: Partial<Record<ColumnKind, number>>,
@@ -247,18 +288,20 @@ function resolveProductName(
   novaSifra: string,
 ): string {
   const nameCol = cols.name ?? 3;
-  const primary = getCell(row, nameCol);
-  const alt = getCell(row, nameCol === 3 ? 4 : 3);
+  const candidates = [
+    nameCol,
+    nameCol === 3 ? 4 : 3,
+    3,
+    4,
+    cols.novaSifra === nameCol ? 3 : nameCol,
+  ].filter((c, i, arr) => c >= 2 && c <= 8 && arr.indexOf(c) === i);
 
-  const pick = (value: string) => {
-    const v = value.trim();
-    if (!v || v === sku || v === novaSifra) return "";
-    if (isPackColumn(v)) return "";
-    if (/^\d{4,7}$/.test(v)) return "";
-    return v;
-  };
+  for (const col of candidates) {
+    const picked = pickProductName(getCell(row, col), sku, novaSifra);
+    if (picked) return picked;
+  }
 
-  return pick(primary) || pick(alt);
+  return "";
 }
 
 function resolvePriceAndPdv(
@@ -267,17 +310,26 @@ function resolvePriceAndPdv(
 ): { priceRaw: string; pdvRaw: string } {
   const priceCol = cols.price ?? 6;
   const pdvCol = cols.pdv ?? priceCol + 1;
-  const fallbacks = [priceCol, priceCol === 6 ? 5 : 6, 5, 6, 7].filter(
-    (c, i, arr) => arr.indexOf(c) === i,
+  const candidates = [priceCol, priceCol === 6 ? 5 : 6, 5, 6, 7, 4, 8].filter(
+    (c, i, arr) => c >= 4 && c <= 10 && arr.indexOf(c) === i,
   );
 
-  for (const col of fallbacks) {
+  let pdvRaw = getCell(row, pdvCol);
+
+  for (const col of candidates) {
     const raw = getCell(row, col);
-    if (!isLikelyPriceRaw(raw)) continue;
+    if (!raw.trim() || isPackColumn(raw)) continue;
+    if (isPdvColumnRaw(raw)) {
+      if (!pdvRaw) pdvRaw = raw;
+      continue;
+    }
+    const n = parsePriceHint(raw);
+    if (n == null || isPdvValueAsPrice(n)) continue;
+    if (!isLikelyPriceRaw(raw) && !/din|rsd|€|eur/i.test(raw)) continue;
     const pdvGuess = col === 5 ? 6 : col === 6 ? 7 : col + 1;
     return {
       priceRaw: raw,
-      pdvRaw: getCell(row, pdvCol) || getCell(row, pdvGuess),
+      pdvRaw: pdvRaw || getCell(row, pdvGuess),
     };
   }
 

@@ -95,10 +95,12 @@ export const HORECA_DEFAULT_COLS = HORECA_WIDE_COLS;
 export function isPackColumn(raw: string): boolean {
   const s = raw.trim();
   if (!s) return false;
+  if (/tr\.?\s*pak/i.test(s)) return true;
+  // Samo kratke ćelije pakovanja (npr. "12 kom."), ne ceo naziv proizvoda koji sadrži "360kom"
+  if (s.length > 32) return false;
   return (
     /^\d+([.,]\d+)?\s*(kom|kg|seta|l|ml|g)\.?$/i.test(s) ||
-    /tr\.?\s*pak/i.test(s) ||
-    (/kom\.?$/i.test(s) && !/din/i.test(s))
+    (/^\d+([.,]\d+)?\s*kom\.?$/i.test(s) && !/din/i.test(s))
   );
 }
 
@@ -107,7 +109,9 @@ export function isLikelyPriceRaw(raw: string): boolean {
   if (!s || isPackColumn(s)) return false;
   if (/din|rsd|€|eur/i.test(s)) return true;
   const n = parsePriceHint(s);
-  return n != null && n >= 10;
+  if (n == null) return false;
+  if (isPdvColumnRaw(raw)) return false;
+  return n >= 0.01;
 }
 
 export function isPdvColumnRaw(raw: string): boolean {
@@ -179,11 +183,14 @@ export function parsePriceHint(raw: string): number | null {
 
   let s = raw
     .replace(/\s/g, "")
-    .replace(/din\/?(kom|kg|seta|l|ml)?/gi, "")
+    .replace(/din\/?(kom|kg|seta|l|ml)?\.?/gi, "")
     .replace(/rsd|eur|€/gi, "")
-    .replace(/[^\d,.-]/g, "");
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\.+$/g, "");
 
-  if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s)) {
+  if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s)) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s)) {
     s = s.replace(/,/g, "");
   } else if (/^\d+,\d{1,2}$/.test(s)) {
     s = s.replace(",", ".");

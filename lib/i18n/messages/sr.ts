@@ -275,9 +275,13 @@ export const messagesSr = {
     previewReady: "Pregled spreman",
     previewFailed: "Pregled nije uspeo",
     importSuccess:
-      "Cenovnik zamenjen: {total} proizvoda (uklonjeno {removed} starih).",
+      "Cenovnik zamenjen: {total} proizvoda (prepoznato {parsed} u Excelu, uklonjeno {removed} starih).",
+    importSuccessWithSkipped:
+      "Cenovnik zamenjen: {total} proizvoda (prepoznato {parsed}, preskočeno {skipped}, uklonjeno {removed} starih).",
     importFailed: "Uvoz nije uspeo",
     historyTitle: "Istorija uvoza",
+    historyShowAll: "Prikaži celu istoriju ({count})",
+    historyShowLess: "Suzi prikaz",
     noHistory: "Još nema uvezenih cenovnika u bazi.",
     historyStats: "{added} novo · {updated} ažurirano · {removed} uklonjeno · {rows} redova",
     rollback: "Vrati snapshot",

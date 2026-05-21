@@ -112,11 +112,21 @@ export default function UploadPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      const total = data.inserted + data.updated;
+      const skipped = data.skipped ?? 0;
       toast.success(
-        t("upload.importSuccess", {
-          total: data.inserted + data.updated,
-          removed: data.removedOld ?? 0,
-        }),
+        skipped > 0
+          ? t("upload.importSuccessWithSkipped", {
+              total,
+              parsed: data.rowCount ?? total,
+              skipped,
+              removed: data.removedOld ?? 0,
+            })
+          : t("upload.importSuccess", {
+              total,
+              parsed: data.rowCount ?? total,
+              removed: data.removedOld ?? 0,
+            }),
       );
       setImportFile(null);
       setPreview(null);

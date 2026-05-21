@@ -15,26 +15,14 @@ function cellValue(cell: ExcelJS.Cell): string {
 }
 
 async function main() {
-  const buf = Buffer.from(
-    readFileSync("HoReCa cenovnik -primena 01.06.2026.xlsx"),
-  );
-  const rows = await parseExcelBuffer(buf);
+  const paths = process.argv.slice(2).length
+    ? process.argv.slice(2)
+    : ["HoReCa cenovnik -primena 01.06.2026.xlsx"];
 
-  console.log("total", rows.length);
-  console.log("10001", rows.find((r) => r.sku === "10001"));
-  console.log("name===sku", rows.filter((r) => r.name === r.sku).length);
-
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buf);
-  const sheet = wb.getWorksheet("Table 3");
-  for (const r of [210, 229, 234]) {
-    const row = sheet.getRow(r);
-    const cells: string[] = [];
-    row.eachCell({ includeEmpty: false }, (cell, col) => {
-      if (col <= 10) cells[col - 1] = cellValue(cell);
-    });
-    const list = cells.filter((c) => c) as string[];
-    console.log("R" + r, list, "brand?", isBrandRow(list));
+  for (const path of paths) {
+    const buf = Buffer.from(readFileSync(path));
+    const rows = await parseExcelBuffer(buf);
+    console.log(path, "parsed", rows.length);
   }
 }
 

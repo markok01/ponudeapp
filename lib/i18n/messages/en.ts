@@ -277,9 +277,13 @@ export const messagesEn: Messages = {
     previewReady: "Preview ready",
     previewFailed: "Preview failed",
     importSuccess:
-      "Price list replaced: {total} products (removed {removed} old).",
+      "Price list replaced: {total} products ({parsed} recognized in Excel, removed {removed} old).",
+    importSuccessWithSkipped:
+      "Price list replaced: {total} products ({parsed} recognized, {skipped} skipped, removed {removed} old).",
     importFailed: "Import failed",
     historyTitle: "Import history",
+    historyShowAll: "Show full history ({count})",
+    historyShowLess: "Show less",
     noHistory: "No price lists imported yet.",
     historyStats: "{added} new · {updated} updated · {removed} removed · {rows} rows",
     rollback: "Restore snapshot",

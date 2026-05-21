@@ -82,7 +82,11 @@ export async function getProductsPaginated(filters?: {
   pageSize: number;
 }> {
   const page = Math.max(1, filters?.page ?? 1);
-  const pageSize = Math.min(500, Math.max(1, filters?.pageSize ?? 100));
+  const maxPageSize = 50_000;
+  const pageSize = Math.min(
+    maxPageSize,
+    Math.max(1, filters?.pageSize ?? 100),
+  );
   const offset = (page - 1) * pageSize;
   const { where, params } = buildProductWhere(filters);
 
