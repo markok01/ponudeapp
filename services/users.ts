@@ -130,3 +130,12 @@ export async function deactivateUser(id: number): Promise<void> {
     [id],
   );
 }
+
+/** Trajno briše nalog i sve njegove sesije (nestaje iz liste). */
+export async function deleteUser(id: number): Promise<void> {
+  await revokeAllUserSessions(id);
+  const result = await execute(`DELETE FROM users WHERE id = ?`, [id]);
+  if (!result.affectedRows) {
+    throw new Error("Nalog nije pronađen");
+  }
+}

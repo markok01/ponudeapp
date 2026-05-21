@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { createUser, deactivateUser, listUsers } from "@/services/users";
+import { createUser, deactivateUser, deleteUser, listUsers } from "@/services/users";
 
 export async function GET() {
   const session = await getSessionUser();
@@ -50,17 +50,32 @@ export async function DELETE(request: NextRequest) {
   }
 
   const id = Number(request.nextUrl.searchParams.get("id"));
+  const permanent = request.nextUrl.searchParams.get("permanent") === "1";
   if (!Number.isFinite(id)) {
     return NextResponse.json({ error: "Neispravan ID" }, { status: 400 });
   }
 
   if (id === session.id) {
     return NextResponse.json(
-      { error: "Ne možete deaktivirati sopstveni nalog" },
+      {
+        error: permanent
+          ? "Ne možete obrisati sopstveni nalog"
+          : "Ne možete deaktivirati sopstveni nalog",
+      },
       { status: 400 },
     );
   }
 
-  await deactivateUser(id);
-  return NextResponse.json({ message: "Nalog deaktiviran" });
+  try {
+    if (permanent) {
+      await deleteUser(id);
+      return NextResponse.json({ message: "Nalog uklonjen" });
+    }
+    await deactivateUser(id);
+    return NextResponse.json({ message: "Nalog deaktiviran" });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Operacija nije uspela";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

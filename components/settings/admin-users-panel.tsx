@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, UserPlus, Users } from "lucide-react";
+import { Loader2, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 
@@ -24,6 +26,8 @@ export function AdminUsersPanel() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -98,6 +102,24 @@ export function AdminUsersPanel() {
     }
   }
 
+  async function removeUser(id: number) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/users?id=${id}&permanent=1`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(t("settings.accountDeleted"));
+      setDeleteTarget(null);
+      void load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("common.error"));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -122,20 +144,48 @@ export function AdminUsersPanel() {
                   {!u.active ? ` · ${t("settings.deactivated")}` : ""}
                 </p>
               </div>
-              {u.active ? (
+              <div className="flex flex-wrap gap-2">
+                {u.active ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void deactivate(u.id)}
+                  >
+                    {t("settings.deactivate")}
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="text-destructive"
-                  onClick={() => void deactivate(u.id)}
+                  onClick={() => setDeleteTarget(u)}
                 >
-                  {t("settings.deactivate")}
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t("settings.deleteUser")}
                 </Button>
-              ) : null}
+              </div>
             </li>
           ))}
         </ul>
+
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+          title={t("settings.deleteUserTitle")}
+          description={t("settings.deleteUserBody", {
+            email: deleteTarget?.email ?? "",
+          })}
+          confirmLabel={t("settings.deleteUser")}
+          destructive
+          loading={deleting}
+          onConfirm={() => {
+            if (deleteTarget) void removeUser(deleteTarget.id);
+          }}
+        />
 
         <form onSubmit={(e) => void handleCreate(e)} className="space-y-4 border-t pt-4">
           <p className="flex items-center gap-2 text-sm font-medium">
@@ -163,11 +213,11 @@ export function AdminUsersPanel() {
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="admin-password">{t("settings.userPassword")}</Label>
-              <Input
+              <PasswordInput
                 id="admin-password"
-                type="password"
                 required
                 minLength={8}
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
