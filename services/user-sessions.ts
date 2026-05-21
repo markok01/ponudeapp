@@ -1,5 +1,31 @@
 import { randomUUID } from "crypto";
 import { execute, query, type RowDataPacket } from "@/lib/db";
+import type { UserRole } from "@/services/users";
+
+interface UserRoleRow extends RowDataPacket {
+  role: string;
+}
+
+export interface ActiveSessionDetail {
+  sessionId: string;
+  userId: number;
+  email: string;
+  name: string;
+  role: UserRole;
+  lastSeenAt: string;
+  expiresAt: string;
+}
+
+export interface UserLoginSummary {
+  userId: number;
+  email: string;
+  name: string;
+  role: UserRole;
+  activeSessionCount: number;
+  /** null = admin, neograničeno uređaja */
+  maxDevices: number | null;
+  sessions: ActiveSessionDetail[];
+}
 
 export function getMaxDevices(): number {
   const raw = process.env.MAX_DEVICES?.trim();
@@ -37,7 +63,17 @@ export async function countActiveSessions(userId: number): Promise<number> {
   return Number(rows[0]?.cnt ?? 0);
 }
 
+async function isAdminUser(userId: number): Promise<boolean> {
+  const rows = await query<UserRoleRow[]>(
+    `SELECT role FROM users WHERE id = ? AND active = 1 LIMIT 1`,
+    [userId],
+  );
+  return rows[0]?.role === "admin";
+}
+
 export async function assertCanCreateSession(userId: number): Promise<void> {
+  if (await isAdminUser(userId)) return;
+
   const max = getMaxDevices();
   const active = await countActiveSessions(userId);
   if (active >= max) {
@@ -89,4 +125,94 @@ export async function revokeUserSession(sessionId: string): Promise<void> {
 
 export async function revokeAllUserSessions(userId: number): Promise<void> {
   await execute(`DELETE FROM user_sessions WHERE user_id = ?`, [userId]);
+}
+
+interface SessionDetailRow extends RowDataPacket {
+  session_id: string;
+  user_id: number;
+  email: string;
+  name: string;
+  role: string;
+  last_seen_at: Date;
+  expires_at: Date;
+}
+
+/** Pregled aktivnih prijava za admin panel (Podešavanja). */
+export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
+  await purgeExpiredSessions();
+
+  const rows = await query<SessionDetailRow[]>(`
+    SELECT
+      s.id AS session_id,
+      s.user_id,
+      u.email,
+      u.name,
+      u.role,
+      s.last_seen_at,
+      s.expires_at
+    FROM user_sessions s
+    INNER JOIN users u ON u.id = s.user_id
+    WHERE s.expires_at >= NOW() AND u.active = 1
+    ORDER BY s.last_seen_at DESC
+  `);
+
+  const maxRegular = getMaxDevices();
+  const byUser = new Map<number, UserLoginSummary>();
+
+  for (const row of rows) {
+    const role: UserRole = row.role === "admin" ? "admin" : "user";
+    let entry = byUser.get(row.user_id);
+    if (!entry) {
+      entry = {
+        userId: row.user_id,
+        email: row.email,
+        name: row.name,
+        role,
+        activeSessionCount: 0,
+        maxDevices: role === "admin" ? null : maxRegular,
+        sessions: [],
+      };
+      byUser.set(row.user_id, entry);
+    }
+    entry.activeSessionCount += 1;
+    entry.sessions.push({
+      sessionId: row.session_id,
+      userId: row.user_id,
+      email: row.email,
+      name: row.name,
+      role,
+      lastSeenAt: new Date(row.last_seen_at).toISOString(),
+      expiresAt: new Date(row.expires_at).toISOString(),
+    });
+  }
+
+  const allUsers = await query<
+    (RowDataPacket & { id: number; email: string; name: string; role: string })[]
+  >(`SELECT id, email, name, role FROM users WHERE active = 1 ORDER BY email ASC`);
+
+  const result: UserLoginSummary[] = [];
+  for (const u of allUsers) {
+    const role: UserRole = u.role === "admin" ? "admin" : "user";
+    const existing = byUser.get(u.id);
+    if (existing) {
+      result.push(existing);
+    } else {
+      result.push({
+        userId: u.id,
+        email: u.email,
+        name: u.name,
+        role,
+        activeSessionCount: 0,
+        maxDevices: role === "admin" ? null : maxRegular,
+        sessions: [],
+      });
+    }
+  }
+
+  return result.sort((a, b) => {
+    if (b.activeSessionCount !== a.activeSessionCount) {
+      return b.activeSessionCount - a.activeSessionCount;
+    }
+    return a.email.localeCompare(b.email);
+  });
 }

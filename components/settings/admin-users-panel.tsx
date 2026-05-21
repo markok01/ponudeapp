@@ -7,13 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 
 interface UserRow {
@@ -26,6 +20,7 @@ interface UserRow {
 
 export function AdminUsersPanel() {
   const t = useTranslations();
+  const adminAccess = useIsAdmin();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,7 +28,6 @@ export function AdminUsersPanel() {
     email: "",
     password: "",
     name: "",
-    role: "user",
   });
 
   const load = useCallback(async () => {
@@ -55,8 +49,11 @@ export function AdminUsersPanel() {
   }, [t]);
 
   useEffect(() => {
+    if (adminAccess !== "admin") return;
     void load();
-  }, [load]);
+  }, [adminAccess, load]);
+
+  if (adminAccess !== "admin") return null;
 
   if (loading) {
     return (
@@ -66,10 +63,6 @@ export function AdminUsersPanel() {
         </CardContent>
       </Card>
     );
-  }
-
-  if (!loading && users.length === 0 && !form.email) {
-    return null;
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -84,7 +77,7 @@ export function AdminUsersPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(t("settings.accountCreated", { email: data.email }));
-      setForm({ email: "", password: "", name: "", role: "user" });
+      setForm({ email: "", password: "", name: "" });
       void load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("common.error"));
@@ -168,21 +161,6 @@ export function AdminUsersPanel() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label>{t("settings.userRole")}</Label>
-              <Select
-                value={form.role}
-                onValueChange={(v) => setForm({ ...form, role: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">{t("settings.userRoleUser")}</SelectItem>
-                  <SelectItem value="admin">{t("settings.userRoleAdmin")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="admin-password">{t("settings.userPassword")}</Label>
               <Input
@@ -195,6 +173,7 @@ export function AdminUsersPanel() {
               />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">{t("settings.usersAppOnlyRole")}</p>
           <Button type="submit" disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {t("settings.createAccount")}

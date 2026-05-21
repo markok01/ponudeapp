@@ -34,9 +34,14 @@ function denyAccess(request: NextRequest, pathname: string) {
   return res;
 }
 
+type AuthMe = {
+  authenticated?: boolean;
+  user?: { role?: string } | null;
+};
+
 /** Provera sesije preko Node API rute (crypto + baza nisu dostupni u proxy). */
-async function sessionIsValid(request: NextRequest): Promise<boolean> {
-  if (!request.cookies.get(SESSION_COOKIE)?.value) return false;
+async function fetchAuthMe(request: NextRequest): Promise<AuthMe | null> {
+  if (!request.cookies.get(SESSION_COOKIE)?.value) return null;
 
   try {
     const meUrl = new URL("/api/auth/me", request.url);
@@ -44,12 +49,16 @@ async function sessionIsValid(request: NextRequest): Promise<boolean> {
       headers: { cookie: request.headers.get("cookie") ?? "" },
       cache: "no-store",
     });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { authenticated?: boolean };
-    return data.authenticated === true;
+    if (!res.ok) return null;
+    return (await res.json()) as AuthMe;
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function sessionIsValid(request: NextRequest): Promise<boolean> {
+  const data = await fetchAuthMe(request);
+  return data?.authenticated === true;
 }
 
 export async function proxy(request: NextRequest) {
@@ -68,6 +77,13 @@ export async function proxy(request: NextRequest) {
 
   if (!(await sessionIsValid(request))) {
     return denyAccess(request, pathname);
+  }
+
+  if (pathname.startsWith("/api/admin")) {
+    const me = await fetchAuthMe(request);
+    if (me?.user?.role !== "admin") {
+      return NextResponse.json({ error: "Nedozvoljeno" }, { status: 403 });
+    }
   }
 
   return NextResponse.next();

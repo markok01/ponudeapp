@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import {
-  createUser,
-  deactivateUser,
-  listUsers,
-  type UserRole,
-} from "@/services/users";
+import { createUser, deactivateUser, listUsers } from "@/services/users";
 
 export async function GET() {
   const session = await getSessionUser();
@@ -38,7 +33,7 @@ export async function POST(request: NextRequest) {
       email: body.email,
       password: body.password,
       name: body.name,
-      role: body.role as UserRole | undefined,
+      role: "user",
     });
     return NextResponse.json(user, { status: 201 });
   } catch (error) {

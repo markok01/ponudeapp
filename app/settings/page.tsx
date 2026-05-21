@@ -3,7 +3,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ImagePlus, Loader2, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { AdminSessionsPanel } from "@/components/settings/admin-sessions-panel";
 import { AdminUsersPanel } from "@/components/settings/admin-users-panel";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { LanguageSettingsCard } from "@/components/settings/language-settings-card";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const t = useTranslations();
+  const adminAccess = useIsAdmin();
   const logoInputId = useId();
   const [companyName, setCompanyName] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -189,7 +192,12 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <AdminUsersPanel />
+        {adminAccess === "admin" ? (
+          <>
+            <AdminSessionsPanel />
+            <AdminUsersPanel />
+          </>
+        ) : null}
       </div>
     </DashboardShell>
   );
