@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import {
+  clearSessionCookieOptions,
+  getSessionUser,
+  SESSION_COOKIE,
+} from "@/lib/auth";
 import {
   listUserLoginSummaries,
   revokeAllUserSessions,
@@ -27,13 +31,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Neispravan ID korisnika" }, { status: 400 });
   }
 
+  await revokeAllUserSessions(userId);
+
   if (userId === session.id) {
-    return NextResponse.json(
-      { error: "Koristite Odjava za sopstvenu sesiju" },
-      { status: 400 },
-    );
+    const res = NextResponse.json({
+      ok: true,
+      selfRevoked: true,
+      message: "Odjavljeni ste sa svih uređaja",
+    });
+    res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
+    return res;
   }
 
-  await revokeAllUserSessions(userId);
   return NextResponse.json({ ok: true, message: "Sve sesije korisnika su uklonjene" });
 }

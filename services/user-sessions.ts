@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { execute, query, type RowDataPacket } from "@/lib/db";
+import type { SessionClientInfo } from "@/lib/session-client-info";
 import type { UserRole } from "@/services/users";
 
 interface UserRoleRow extends RowDataPacket {
@@ -14,6 +15,10 @@ export interface ActiveSessionDetail {
   role: UserRole;
   lastSeenAt: string;
   expiresAt: string;
+  deviceLabel: string | null;
+  geoCity: string | null;
+  geoCountry: string | null;
+  geoCountryCode: string | null;
 }
 
 export interface UserLoginSummary {
@@ -84,6 +89,7 @@ export async function assertCanCreateSession(userId: number): Promise<void> {
 export async function createUserSession(
   userId: number,
   maxAgeSec: number,
+  client?: SessionClientInfo,
 ): Promise<string> {
   await assertCanCreateSession(userId);
 
@@ -91,8 +97,22 @@ export async function createUserSession(
   const expiresAt = new Date(Date.now() + maxAgeSec * 1000);
 
   await execute(
-    `INSERT INTO user_sessions (id, user_id, expires_at) VALUES (?, ?, ?)`,
-    [id, userId, expiresAt],
+    `INSERT INTO user_sessions (
+      id, user_id, expires_at,
+      device_label, user_agent, ip_address,
+      geo_city, geo_country, geo_country_code
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      userId,
+      expiresAt,
+      client?.deviceLabel ?? null,
+      client?.userAgent ?? null,
+      client?.ipAddress ?? null,
+      client?.geoCity ?? null,
+      client?.geoCountry ?? null,
+      client?.geoCountryCode ?? null,
+    ],
   );
 
   return id;
@@ -135,6 +155,10 @@ interface SessionDetailRow extends RowDataPacket {
   role: string;
   last_seen_at: Date;
   expires_at: Date;
+  device_label: string | null;
+  geo_city: string | null;
+  geo_country: string | null;
+  geo_country_code: string | null;
 }
 
 /** Pregled aktivnih prijava za admin panel (Podešavanja). */
@@ -149,7 +173,11 @@ export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
       u.name,
       u.role,
       s.last_seen_at,
-      s.expires_at
+      s.expires_at,
+      s.device_label,
+      s.geo_city,
+      s.geo_country,
+      s.geo_country_code
     FROM user_sessions s
     INNER JOIN users u ON u.id = s.user_id
     WHERE s.expires_at >= NOW() AND u.active = 1
@@ -183,6 +211,10 @@ export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
       role,
       lastSeenAt: new Date(row.last_seen_at).toISOString(),
       expiresAt: new Date(row.expires_at).toISOString(),
+      deviceLabel: row.device_label?.trim() || null,
+      geoCity: row.geo_city?.trim() || null,
+      geoCountry: row.geo_country?.trim() || null,
+      geoCountryCode: row.geo_country_code?.trim() || null,
     });
   }
 

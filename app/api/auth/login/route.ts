@@ -19,6 +19,7 @@ import {
   SESSION_COOKIE,
   verifyAppPassword,
 } from "@/lib/auth";
+import { getSessionClientInfo } from "@/lib/session-client-info";
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,9 +79,11 @@ export async function POST(request: NextRequest) {
       await revokeUserSession(existing.sid);
     }
 
+    const clientInfo = await getSessionClientInfo(request);
+
     let sessionId: string;
     try {
-      sessionId = await createUserSession(user.id, maxAgeSec);
+      sessionId = await createUserSession(user.id, maxAgeSec, clientInfo);
     } catch (err) {
       if (err instanceof DeviceLimitError) {
         return NextResponse.json(

@@ -26,6 +26,12 @@ async function ensureSchema(p: Pool): Promise<void> {
         `ALTER TABLE quotes ADD COLUMN note TEXT NULL`,
         `ALTER TABLE quotes ADD COLUMN valid_until DATE NULL`,
         `ALTER TABLE quote_items ADD COLUMN qty INT NOT NULL DEFAULT 1`,
+        `ALTER TABLE user_sessions ADD COLUMN device_label VARCHAR(120) NULL AFTER expires_at`,
+        `ALTER TABLE user_sessions ADD COLUMN user_agent VARCHAR(512) NULL AFTER device_label`,
+        `ALTER TABLE user_sessions ADD COLUMN ip_address VARCHAR(45) NULL AFTER user_agent`,
+        `ALTER TABLE user_sessions ADD COLUMN geo_city VARCHAR(120) NULL AFTER ip_address`,
+        `ALTER TABLE user_sessions ADD COLUMN geo_country VARCHAR(120) NULL AFTER geo_city`,
+        `ALTER TABLE user_sessions ADD COLUMN geo_country_code VARCHAR(8) NULL AFTER geo_country`,
       ];
       for (const sql of columnMigrations) {
         try {
@@ -88,6 +94,12 @@ async function ensureSchema(p: Pool): Promise<void> {
           id VARCHAR(36) PRIMARY KEY,
           user_id INT NOT NULL,
           expires_at DATETIME NOT NULL,
+          device_label VARCHAR(120) NULL,
+          user_agent VARCHAR(512) NULL,
+          ip_address VARCHAR(45) NULL,
+          geo_city VARCHAR(120) NULL,
+          geo_country VARCHAR(120) NULL,
+          geo_country_code VARCHAR(8) NULL,
           last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_user_sessions_user (user_id),
