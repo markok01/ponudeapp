@@ -55,6 +55,7 @@ export const messagesSr = {
     loginTitle: "PonudeApp",
     loginSubtitle: "Prijava samo za odobrene naloge — registracija nije moguća",
     email: "Email",
+    emailPlaceholder: "ime@domen.rs",
     password: "Lozinka",
     showPassword: "Prikaži lozinku",
     hidePassword: "Sakrij lozinku",

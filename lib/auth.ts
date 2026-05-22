@@ -9,8 +9,11 @@ import {
   clearSessionCookieOptions,
 } from "@/lib/auth-config";
 import { getUserById } from "@/services/users";
+import { writeSecurityAuditLog } from "@/lib/security/audit-log";
+import { isAdminIdleExpired } from "@/lib/security/admin-idle";
 import {
-  getValidUserSession,
+  resolveUserSession,
+  revokeUserSession,
   touchUserSession,
 } from "@/services/user-sessions";
 
@@ -24,12 +27,14 @@ export {
   sessionCookieOptions,
 } from "@/lib/auth-config";
 
-const TOKEN_VERSION = 4;
+const TOKEN_VERSION = 5;
+const TOKEN_VERSION_LEGACY = 4;
 
 export interface SessionPayload {
   v: number;
   userId: number;
-  email: string;
+  /** Samo JWT v4 (legacy tok) */
+  email?: string;
   /** ID sesije u user_sessions (jedan uređaj/pregledač) */
   sid?: string;
   /** Brojač sesije — povećava se pri deaktivaciji */
@@ -61,7 +66,6 @@ export function createSessionToken(
   const payload: SessionPayload = {
     v: TOKEN_VERSION,
     userId: user.id,
-    email: user.email,
     ...(user.sessionId ? { sid: user.sessionId } : {}),
     sv: user.sessionVersion ?? 1,
     exp: Math.floor(Date.now() / 1000) + maxAgeSec,
@@ -92,12 +96,12 @@ export function parseSessionToken(
       Buffer.from(payloadB64, "base64url").toString("utf8"),
     ) as SessionPayload;
 
-    if (
-      payload.v !== TOKEN_VERSION ||
-      !payload.userId ||
-      !payload.email ||
-      typeof payload.sv !== "number"
-    ) {
+    const versionOk =
+      payload.v === TOKEN_VERSION || payload.v === TOKEN_VERSION_LEGACY;
+    if (!versionOk || !payload.userId || typeof payload.sv !== "number") {
+      return null;
+    }
+    if (payload.v === TOKEN_VERSION_LEGACY && !payload.email) {
       return null;
     }
     if (payload.userId > 0 && !payload.sid) {
@@ -151,8 +155,20 @@ export async function getSessionUser(): Promise<{
 
   if (payload.userId > 0) {
     if (!payload.sid) return null;
-    const valid = await getValidUserSession(payload.sid, payload.userId);
-    if (!valid) return null;
+    const resolved = await resolveUserSession(payload.sid, payload.userId);
+    if (!resolved) return null;
+
+    if (user.role === "admin" && isAdminIdleExpired(resolved.lastActivityAt)) {
+      await revokeUserSession(payload.sid);
+      await writeSecurityAuditLog({
+        requestId: "session-idle",
+        eventType: "auth.session.revoked_idle",
+        actorUserId: user.id,
+        failureReason: "admin_idle_timeout",
+      });
+      return null;
+    }
+
     await touchUserSession(payload.sid);
   }
 

@@ -4,8 +4,8 @@
  * Nema registracije u app-u — niko drugi ne može sam da napravi nalog.
  *
  * Primer:
- *   node scripts/create-user.mjs admin@firma.rs "JakaLozinka123" "Marko" admin
- *   node scripts/create-user.mjs kolega@firma.rs "DrugaLozinka456" "Ana" user
+ *   node scripts/create-user.mjs <email> "<lozinka>" "Ime" admin
+ *   node scripts/create-user.mjs <email> "<lozinka>" "Ime" user
  */
 import { randomBytes, scrypt } from "crypto";
 import { promisify } from "util";

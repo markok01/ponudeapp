@@ -82,7 +82,7 @@ export default function LoginPageClient() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="vi@firma.rs"
+                placeholder={t("auth.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

@@ -1,6 +1,17 @@
 import { execute, query, type RowDataPacket } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { revokeAllUserSessions } from "@/services/user-sessions";
+import {
+  passwordPolicyMessage,
+  validateAdminCreatedPassword,
+} from "@/lib/security/password-policy";
+import {
+  atomicDeactivateUserSessions,
+  revokeAllUserSessions,
+} from "@/services/user-sessions";
+import {
+  atomicInvalidateSessionsOnRoleChange,
+  atomicRevokeAllUserSessions,
+} from "@/lib/security/session-revoke";
 
 export type UserRole = "admin" | "user";
 
@@ -76,17 +87,36 @@ export async function authenticateUser(
   return safe;
 }
 
+/** Povećava session_version i gasi sve sesije (atomski). */
+export async function bumpUserSecurityVersion(userId: number): Promise<void> {
+  await atomicRevokeAllUserSessions(userId, { bumpSessionVersion: true });
+}
+
+export async function changeUserRole(
+  userId: number,
+  role: UserRole,
+): Promise<void> {
+  await atomicInvalidateSessionsOnRoleChange(userId, role);
+}
+
 export async function createUser(input: {
   email: string;
   password: string;
   name?: string;
   role?: UserRole;
+  /** Jača pravila lozinke (admin kreira nalog u aplikaciji). */
+  strictPassword?: boolean;
 }): Promise<AppUser> {
   const email = input.email.trim().toLowerCase();
   if (!email || !email.includes("@")) {
     throw new Error("Unesite ispravan email");
   }
-  if (!input.password || input.password.length < 8) {
+  if (input.strictPassword) {
+    const policy = validateAdminCreatedPassword(input.password);
+    if (!policy.ok) {
+      throw new Error(passwordPolicyMessage(policy));
+    }
+  } else if (!input.password || input.password.length < 8) {
     throw new Error("Lozinka mora imati najmanje 8 karaktera");
   }
 
@@ -124,11 +154,7 @@ export async function listUsers(): Promise<AppUser[]> {
 }
 
 export async function deactivateUser(id: number): Promise<void> {
-  await revokeAllUserSessions(id);
-  await execute(
-    `UPDATE users SET active = 0, session_version = session_version + 1 WHERE id = ?`,
-    [id],
-  );
+  await atomicDeactivateUserSessions(id);
 }
 
 /** Trajno briše nalog i sve njegove sesije (nestaje iz liste). */

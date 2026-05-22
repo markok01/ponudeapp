@@ -57,6 +57,7 @@ export const messagesEn: Messages = {
     loginTitle: "PonudeApp",
     loginSubtitle: "Sign in for approved accounts only — registration is not available",
     email: "Email",
+    emailPlaceholder: "name@company.com",
     password: "Password",
     showPassword: "Show password",
     hidePassword: "Hide password",

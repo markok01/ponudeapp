@@ -1,47 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  clearSessionCookieOptions,
-  getSessionUser,
-  SESSION_COOKIE,
-} from "@/lib/auth";
+import { clearSessionCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { withAdminApi } from "@/lib/security/admin-api";
+import { writeSecurityAuditLog } from "@/lib/security/audit-log";
 import {
   listUserLoginSummaries,
   revokeAllUserSessions,
 } from "@/services/user-sessions";
 
-export async function GET() {
-  const session = await getSessionUser();
-  if (!session || session.role !== "admin") {
-    return NextResponse.json({ error: "Nedozvoljeno" }, { status: 403 });
-  }
-
-  const users = await listUserLoginSummaries();
-  return NextResponse.json({ users });
+export async function GET(request: NextRequest) {
+  return withAdminApi(request, async () => {
+    const users = await listUserLoginSummaries();
+    return NextResponse.json({ users });
+  });
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSessionUser();
-  if (!session || session.role !== "admin") {
-    return NextResponse.json({ error: "Nedozvoljeno" }, { status: 403 });
-  }
+  return withAdminApi(
+    request,
+    async ({ session, meta }) => {
+    const body = await request.json();
+    const userId = Number(body.userId);
+    if (!Number.isFinite(userId)) {
+      return NextResponse.json({ error: "Neispravan ID korisnika" }, { status: 400 });
+    }
 
-  const body = await request.json();
-  const userId = Number(body.userId);
-  if (!Number.isFinite(userId)) {
-    return NextResponse.json({ error: "Neispravan ID korisnika" }, { status: 400 });
-  }
+    await revokeAllUserSessions(userId);
 
-  await revokeAllUserSessions(userId);
-
-  if (userId === session.id) {
-    const res = NextResponse.json({
-      ok: true,
-      selfRevoked: true,
-      message: "Odjavljeni ste sa svih uređaja",
+    await writeSecurityAuditLog({
+      requestId: meta.requestId,
+      eventType: "admin.sessions.revoked",
+      actorUserId: session.id,
+      targetUserId: userId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      metadata: { self: userId === session.id },
     });
-    res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
-    return res;
-  }
 
-  return NextResponse.json({ ok: true, message: "Sve sesije korisnika su uklonjene" });
+    if (userId === session.id) {
+      const res = NextResponse.json({
+        ok: true,
+        selfRevoked: true,
+        message: "Odjavljeni ste sa svih uređaja",
+      });
+      res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
+      return res;
+    }
+
+    return NextResponse.json({ ok: true, message: "Sve sesije korisnika su uklonjene" });
+    },
+    { sensitive: true },
+  );
 }
