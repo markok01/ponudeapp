@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { parseSessionToken, SESSION_COOKIE } from "@/lib/auth";
 import {
   clearSessionCookieOptions,
   isAuthEnabled,
-  SESSION_COOKIE,
 } from "@/lib/auth-config";
 
 const PUBLIC_PATHS = ["/login", "/manifest.webmanifest"];
@@ -13,6 +13,7 @@ function isPublicPath(pathname: string): boolean {
     return true;
   }
   if (pathname.startsWith("/api/auth")) return true;
+  if (pathname === "/api/settings") return true;
   if (pathname === "/api/health") return true;
   if (pathname.startsWith("/icons/")) return true;
   if (pathname === "/favicon.ico") return true;
@@ -20,17 +21,26 @@ function isPublicPath(pathname: string): boolean {
 }
 
 function denyAccess(request: NextRequest, pathname: string) {
+  const hadSessionCookie = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+
   if (pathname.startsWith("/api/")) {
     const res = NextResponse.json({ error: "Niste prijavljeni" }, { status: 401 });
-    res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
+    if (hadSessionCookie) {
+      res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
+    }
     return res;
   }
 
-  const loginUrl = new URL("/login", request.url);
+  const loginUrl = new URL("/login", request.nextUrl.origin);
   loginUrl.searchParams.set("next", pathname);
-  loginUrl.searchParams.set("reason", "session_revoked");
+  loginUrl.searchParams.set(
+    "reason",
+    hadSessionCookie ? "session_revoked" : "auth_required",
+  );
   const res = NextResponse.redirect(loginUrl);
-  res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
+  if (hadSessionCookie) {
+    res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
+  }
   return res;
 }
 
@@ -41,12 +51,16 @@ type AuthMe = {
 
 /** Provera sesije preko Node API rute (crypto + baza nisu dostupni u proxy). */
 async function fetchAuthMe(request: NextRequest): Promise<AuthMe | null> {
-  if (!request.cookies.get(SESSION_COOKIE)?.value) return null;
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!token || !parseSessionToken(token)) return null;
 
   try {
-    const meUrl = new URL("/api/auth/me", request.url);
+    const meUrl = new URL("/api/auth/me", request.nextUrl.origin);
     const res = await fetch(meUrl, {
-      headers: { cookie: request.headers.get("cookie") ?? "" },
+      headers: {
+        cookie: request.headers.get("cookie") ?? "",
+        "x-forwarded-host": request.headers.get("host") ?? "",
+      },
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -57,8 +71,16 @@ async function fetchAuthMe(request: NextRequest): Promise<AuthMe | null> {
 }
 
 async function sessionIsValid(request: NextRequest): Promise<boolean> {
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const payload = parseSessionToken(token);
+  if (!payload) return false;
+
   const data = await fetchAuthMe(request);
-  return data?.authenticated === true;
+  if (data?.authenticated === true) return true;
+  if (data?.authenticated === false) return false;
+
+  // /api/auth/me nedostupan u proxy fetch-u — dozvoli samo ako JWT izgleda validno
+  return true;
 }
 
 export async function proxy(request: NextRequest) {

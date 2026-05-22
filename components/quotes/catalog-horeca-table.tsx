@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { Check, Plus } from "lucide-react";
 import { ResizableColumnHead } from "@/components/quotes/resizable-column-head";
 import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
+import { useContainerWidth } from "@/hooks/use-container-width";
 import type { Product } from "@/types";
 import {
   formatPdvDisplay,
@@ -12,6 +14,7 @@ import {
   HORECA_HEADER_BG,
 } from "@/utils/catalog-display";
 import { useTranslations } from "@/lib/i18n/locale-provider";
+import { TruncatedProductName } from "@/components/ui/product-name-tooltip";
 import { cn } from "@/lib/utils";
 import type { CatalogColumnKey } from "@/lib/quote-workspace-layout";
 
@@ -29,30 +32,59 @@ export function CatalogHorecaTable({
   onSelect,
 }: CatalogHorecaTableProps) {
   const t = useTranslations();
-  const { layout, resizeCatalogCol } = useQuoteWorkspaceLayout();
+  const {
+    layout,
+    resizeCatalogCol,
+    catalogColStyles,
+    catalogTableMinWidth,
+    isCatalogFluid,
+    isPanelResizing,
+    catalogPanelWidth,
+    setCatalogPanelWidth,
+  } = useQuoteWorkspaceLayout();
+  const { ref: panelRef, width: measuredWidth } = useContainerWidth<HTMLDivElement>({
+    observe: !isPanelResizing,
+  });
+  const panelWidth = isPanelResizing ? catalogPanelWidth : measuredWidth;
   const groups = groupProductsByCategory(products, t("catalog.other"));
+
+  useEffect(() => {
+    setCatalogPanelWidth(panelWidth);
+  }, [panelWidth, setCatalogPanelWidth]);
 
   if (!products.length) {
     return null;
   }
 
-  const cols = layout.catalogCols;
   const rowH = layout.rowHeightPx;
 
   return (
-    <div className="catalog-scroll-wrap flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]">
+    <div
+      ref={panelRef}
+      className="catalog-scroll-wrap flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]"
+      data-catalog-fluid={isCatalogFluid ? "true" : "false"}
+    >
+      <p className="scroll-hint-label shrink-0 px-2 pt-1.5 lg:hidden">
+        {t("common.scrollHint")}
+      </p>
       <div className="catalog-scroll-area min-h-0 flex-1 overflow-auto overscroll-contain">
-        <table className="catalog-table w-full border-collapse" style={{ tableLayout: "fixed" }}>
+        <table
+          className="catalog-table w-full border-collapse text-sm"
+          style={{
+            tableLayout: "fixed",
+            minWidth: catalogTableMinWidth,
+            width: isCatalogFluid ? "100%" : catalogTableMinWidth,
+          }}
+        >
           <colgroup>
-            <col style={{ width: cols.sku }} />
-            <col style={{ width: cols.name }} />
-            <col style={{ width: cols.price }} />
-            <col style={{ width: cols.pdv }} />
+            {(Object.keys(layout.catalogCols) as CatalogColumnKey[]).map((key) => (
+              <col key={key} style={{ width: catalogColStyles[key] }} />
+            ))}
           </colgroup>
           <tbody>
             {groups.map((group) => (
               <GroupBlock
-                key={group.groupLabel}
+                key={group.groupKey}
                 groupLabel={group.groupLabel}
                 products={group.products}
                 inQuoteIds={inQuoteIds}
@@ -80,7 +112,7 @@ function CatalogDataCell({
   className?: string;
   align?: "left" | "center" | "right";
 }) {
-  const { layout, catalogCellMetrics } = useQuoteWorkspaceLayout();
+  const { layout, catalogCellMetrics, isCatalogFluid } = useQuoteWorkspaceLayout();
   const m = catalogCellMetrics(colKey);
 
   return (
@@ -92,9 +124,9 @@ function CatalogDataCell({
         className,
       )}
       style={{
-        width: layout.catalogCols[colKey],
-        height: layout.rowHeightPx,
-        maxHeight: layout.rowHeightPx,
+        width: isCatalogFluid ? undefined : layout.catalogCols[colKey],
+        height: m.rowHeightPx,
+        maxHeight: m.rowHeightPx,
         fontSize: m.fontPx,
         lineHeight: 1.2,
         paddingTop: m.paddingYPx,
@@ -147,21 +179,24 @@ function GroupBlock({
       </tr>
       <tr className={HORECA_HEADER_BG}>
         <ResizableColumnHead
+          variant="catalog"
           align="center"
           onResize={(d) => onResizeCol("sku", d)}
         >
           {t("catalog.sku")}
         </ResizableColumnHead>
-        <ResizableColumnHead onResize={(d) => onResizeCol("name", d)}>
+        <ResizableColumnHead variant="catalog" onResize={(d) => onResizeCol("name", d)}>
           {t("catalog.article")}
         </ResizableColumnHead>
         <ResizableColumnHead
+          variant="catalog"
           align="right"
           onResize={(d) => onResizeCol("price", d)}
         >
           {t("catalog.unitPrice")}
         </ResizableColumnHead>
         <ResizableColumnHead
+          variant="catalog"
           align="center"
           onResize={(d) => onResizeCol("pdv", d)}
         >
@@ -191,9 +226,10 @@ function GroupBlock({
               {product.sku}
             </CatalogDataCell>
             <CatalogDataCell colKey="name" className="font-medium">
-              <span className="catalog-cell-name block overflow-hidden text-ellipsis">
-                {product.name}
-              </span>
+              <TruncatedProductName
+                name={product.name}
+                className="catalog-cell-name font-medium"
+              />
             </CatalogDataCell>
             <CatalogDataCell
               colKey="price"

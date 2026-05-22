@@ -6,7 +6,22 @@ export function getAdminIdleTimeoutMs(): number {
   return safe * 60 * 1000;
 }
 
-export function isAdminIdleExpired(lastActivityAt: Date | string): boolean {
+const NEW_SESSION_GRACE_MS = 5 * 60 * 1000;
+
+export function isAdminIdleExpired(
+  lastActivityAt: Date | string,
+  sessionCreatedAt?: Date | string,
+): boolean {
+  if (sessionCreatedAt) {
+    const created =
+      typeof sessionCreatedAt === "string"
+        ? new Date(sessionCreatedAt).getTime()
+        : sessionCreatedAt.getTime();
+    if (Number.isFinite(created) && Date.now() - created < NEW_SESSION_GRACE_MS) {
+      return false;
+    }
+  }
+
   const at =
     typeof lastActivityAt === "string"
       ? new Date(lastActivityAt).getTime()

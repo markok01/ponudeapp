@@ -31,6 +31,13 @@ export function sortProductsCatalogOrder(products: Product[]): Product[] {
   return [...products].sort(catalogSortKey);
 }
 
+export type ProductCategoryGroup = {
+  /** Jedinstven React key (isti naziv brenda može se pojaviti u više blokova). */
+  groupKey: string;
+  groupLabel: string;
+  products: Product[];
+};
+
 /**
  * Grupiše po brendu/kategoriji u redosledu iz fajla (bez abecednog sortiranja).
  * `products` treba da budu već sortirani po sort_order.
@@ -38,11 +45,8 @@ export function sortProductsCatalogOrder(products: Product[]): Product[] {
 export function groupProductsByCategory(
   products: Product[],
   otherLabel = "Ostalo",
-): {
-  groupLabel: string;
-  products: Product[];
-}[] {
-  const groups: { groupLabel: string; products: Product[] }[] = [];
+): ProductCategoryGroup[] {
+  const groups: ProductCategoryGroup[] = [];
 
   for (const product of products) {
     const label = product.category?.trim() || otherLabel;
@@ -50,7 +54,11 @@ export function groupProductsByCategory(
     if (last && last.groupLabel === label) {
       last.products.push(product);
     } else {
-      groups.push({ groupLabel: label, products: [product] });
+      groups.push({
+        groupKey: `${label}::${product.id}`,
+        groupLabel: label,
+        products: [product],
+      });
     }
   }
 

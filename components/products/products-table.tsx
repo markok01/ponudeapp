@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ProductsCatalogLayoutProvider } from "@/components/catalog/products-catalog-layout-context";
 import { ProductsHorecaTable } from "@/components/products/products-horeca-table";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { Product } from "@/types";
@@ -227,11 +228,13 @@ export function ProductsTable() {
           ) : (
             <>
               <p className="mb-3 text-xs text-muted-foreground">{t("products.editHint")}</p>
-              <ProductsHorecaTable
-                products={products}
-                onProductUpdated={handleProductUpdated}
-                onProductDeleted={handleProductDeleted}
-              />
+              <ProductsCatalogLayoutProvider>
+                <ProductsHorecaTable
+                  products={products}
+                  onProductUpdated={handleProductUpdated}
+                  onProductDeleted={handleProductDeleted}
+                />
+              </ProductsCatalogLayoutProvider>
             </>
           )}
         </CardContent>

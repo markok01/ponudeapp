@@ -11,6 +11,29 @@ export function usePointerDrag(
 ) {
   const startRef = useRef(0);
   const activeRef = useRef(false);
+  const pendingRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const onDeltaRef = useRef(onDelta);
+  onDeltaRef.current = onDelta;
+
+  const flush = useCallback(() => {
+    rafRef.current = null;
+    const d = pendingRef.current;
+    if (d !== 0) {
+      pendingRef.current = 0;
+      onDeltaRef.current(d);
+    }
+  }, []);
+
+  const scheduleDelta = useCallback(
+    (delta: number) => {
+      if (delta === 0) return;
+      pendingRef.current += delta;
+      if (rafRef.current != null) return;
+      rafRef.current = requestAnimationFrame(flush);
+    },
+    [flush],
+  );
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -30,16 +53,17 @@ export function usePointerDrag(
     const onMove = (e: PointerEvent) => {
       if (!activeRef.current) return;
       const current = axis === "x" ? e.clientX : e.clientY;
-      const delta = current - startRef.current;
-      if (delta !== 0) {
-        onDelta(delta);
-        startRef.current = current;
-      }
+      scheduleDelta(current - startRef.current);
+      startRef.current = current;
     };
 
     const onUp = () => {
       if (!activeRef.current) return;
       activeRef.current = false;
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        flush();
+      }
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
@@ -51,8 +75,9 @@ export function usePointerDrag(
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
-  }, [axis, onDelta]);
+  }, [axis, scheduleDelta, flush]);
 
-  return { onPointerDown, isDragging: activeRef };
+  return { onPointerDown };
 }

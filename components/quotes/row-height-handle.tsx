@@ -16,7 +16,7 @@ export function RowHeightHandle() {
       title={t("quotes.resizeRows")}
       aria-label={t("quotes.resizeRows")}
       onPointerDown={onPointerDown}
-      className="inline-flex h-6 cursor-row-resize touch-none items-center gap-0.5 rounded-md border border-border/80 bg-muted/50 px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+      className="hidden h-6 cursor-row-resize touch-none items-center gap-0.5 rounded-md border border-border/80 bg-muted/50 px-1.5 text-muted-foreground hover:bg-accent hover:text-foreground lg:inline-flex"
     >
       <GripHorizontal className="h-3.5 w-3.5" />
       <span className="text-[10px] tabular-nums">{t("quotes.rows")}</span>

@@ -5,6 +5,7 @@ import { Loader2, RotateCcw, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProductNameTooltip } from "@/components/ui/product-name-tooltip";
 import type { Product } from "@/types";
 import {
   groupProductsByCategory,
@@ -12,9 +13,13 @@ import {
   HORECA_HEADER_BG,
   sortProductsCatalogOrder,
 } from "@/utils/catalog-display";
+import { CatalogTableShell } from "@/components/catalog/catalog-table-shell";
+import { RowHeightHandle } from "@/components/catalog/row-height-handle";
+import { ResizableColumnHead } from "@/components/catalog/resizable-column-head";
+import { useProductsCatalogLayout } from "@/components/catalog/products-catalog-layout-context";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { HorizontalScroll } from "@/components/ui/horizontal-scroll";
 import { useTranslations } from "@/lib/i18n/locale-provider";
+import type { ProductsCatalogColumnKey } from "@/lib/products-catalog-layout";
 import type { TranslateFn } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 
@@ -137,6 +142,18 @@ export function ProductsHorecaTable({
   onProductDeleted,
 }: ProductsHorecaTableProps) {
   const t = useTranslations();
+  const {
+    layout,
+    colStyles,
+    tableMinWidth,
+    isFluid,
+    resizeCol,
+    resizeRowHeight,
+    setContainerWidth,
+    headerFontPx,
+    cellMetrics,
+    containerWidth,
+  } = useProductsCatalogLayout();
   const sorted = sortProductsCatalogOrder(products);
   const groups = groupProductsByCategory(sorted, t("catalog.other"));
 
@@ -336,33 +353,64 @@ export function ProductsHorecaTable({
 
   return (
     <div className="space-y-3 max-md:pb-24">
-      <div className="catalog-scroll-wrap min-w-0 overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)] max-md:mx-0.5">
-        <p className="scroll-hint-label hidden px-3 pt-2 md:block">{t("common.scrollHint")}</p>
-        <HorizontalScroll hint={false}>
-          <div className="max-h-[min(50vh,440px)] overflow-y-auto overscroll-y-contain sm:max-h-[min(58vh,520px)] lg:max-h-[min(68vh,640px)]">
-          <table className="catalog-table catalog-table-products w-full border-collapse text-sm md:min-w-[820px]">
-            <tbody>
-              {groups.map((group) => (
-                <EditableGroupBlock
-                  key={`${group.groupLabel}-${group.products.map((p) => p.id).join("-")}`}
-                  groupLabel={group.groupLabel}
-                  groupKey={groupKey(group.products)}
-                  products={group.products}
-                  rowDrafts={rowDrafts}
-                  brandDraft={brandDrafts[groupKey(group.products)] ?? group.groupLabel}
-                  dirtyRowIds={dirtyRowIds}
-                  isBrandDirty={dirtyBrandKeys.has(groupKey(group.products))}
-                  deletingId={deletingId}
-                  onRowDraftChange={updateRowDraft}
-                  onBrandDraftChange={updateBrandDraft}
-                  onDelete={requestDeleteProduct}
-                  t={t}
-                />
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </HorizontalScroll>
+      <CatalogTableShell
+        className="max-md:mx-0.5"
+        onWidthChange={setContainerWidth}
+        scrollHint={
+          <p className="scroll-hint-label px-3 pt-2 max-lg:block lg:hidden">
+            {t("common.scrollHint")}
+          </p>
+        }
+      >
+        <table
+          className="catalog-table catalog-table-products w-full border-collapse text-sm"
+          style={{
+            tableLayout: "fixed",
+            width: "100%",
+            minWidth: isFluid || containerWidth === 0 ? 0 : tableMinWidth,
+          }}
+        >
+          <colgroup>
+            {(
+              ["sku", "name", "brand", "price", "pdv", "actions"] as ProductsCatalogColumnKey[]
+            ).map((key) => (
+              <col
+                key={key}
+                className={key === "brand" ? "catalog-col-brand-col max-md:hidden" : undefined}
+                style={{ width: colStyles[key] }}
+              />
+            ))}
+          </colgroup>
+          <tbody>
+            {groups.map((group) => (
+              <EditableGroupBlock
+                key={`${group.groupLabel}-${group.products.map((p) => p.id).join("-")}`}
+                groupLabel={group.groupLabel}
+                groupKey={groupKey(group.products)}
+                products={group.products}
+                rowDrafts={rowDrafts}
+                brandDraft={brandDrafts[groupKey(group.products)] ?? group.groupLabel}
+                dirtyRowIds={dirtyRowIds}
+                isBrandDirty={dirtyBrandKeys.has(groupKey(group.products))}
+                deletingId={deletingId}
+                onRowDraftChange={updateRowDraft}
+                onBrandDraftChange={updateBrandDraft}
+                onDelete={requestDeleteProduct}
+                resizeCol={resizeCol}
+                rowHeightPx={layout.rowHeightPx}
+                headerFontPx={headerFontPx}
+                cellMetrics={cellMetrics}
+                t={t}
+              />
+            ))}
+          </tbody>
+        </table>
+      </CatalogTableShell>
+      <div className="flex justify-center">
+        <RowHeightHandle
+          onResize={resizeRowHeight}
+          title={t("quotes.resizeRows")}
+        />
       </div>
 
       <div
@@ -461,6 +509,10 @@ function EditableGroupBlock({
   onRowDraftChange,
   onBrandDraftChange,
   onDelete,
+  resizeCol,
+  rowHeightPx,
+  headerFontPx,
+  cellMetrics,
   t,
 }: {
   groupLabel: string;
@@ -474,20 +526,35 @@ function EditableGroupBlock({
   onRowDraftChange: (id: number, patch: Partial<RowDraft>) => void;
   onBrandDraftChange: (key: string, value: string) => void;
   onDelete: (product: Product) => void;
+  resizeCol: (key: ProductsCatalogColumnKey, delta: number) => void;
+  rowHeightPx: number;
+  headerFontPx: number;
+  cellMetrics: (key: ProductsCatalogColumnKey) => import("@/lib/catalog-table-layout").CellMetrics;
   t: TranslateFn;
 }) {
+  const nameMetrics = cellMetrics("name");
+
   return (
     <>
-      <tr className={HORECA_BRAND_BG}>
+      <tr className={cn(HORECA_BRAND_BG, "catalog-brand-row")}>
         <td
           colSpan={COL_COUNT}
-          className="border border-border/50 px-2 py-1.5"
+          className="border border-border/50 px-2"
+          style={{
+            height: Math.max(26, rowHeightPx),
+            paddingTop: nameMetrics.paddingYPx,
+            paddingBottom: nameMetrics.paddingYPx,
+          }}
         >
           <Input
             className={cn(
-              "h-8 max-md:h-9 max-md:text-xs border-transparent bg-white/10 text-center text-sm font-bold uppercase tracking-wide text-white shadow-none placeholder:text-white/50 focus-visible:border-white/40 focus-visible:bg-white/15 focus-visible:ring-1 focus-visible:ring-white/50",
+              "w-full min-w-0 border-transparent bg-white/10 text-center font-bold uppercase tracking-wide text-white shadow-none placeholder:text-white/50 focus-visible:border-white/40 focus-visible:bg-white/15 focus-visible:ring-1 focus-visible:ring-white/50",
               isBrandDirty && "ring-1 ring-inset ring-amber-300",
             )}
+            style={{
+              height: Math.max(22, rowHeightPx - 4),
+              fontSize: nameMetrics.fontPx,
+            }}
             value={brandDraft}
             placeholder={t("products.brandCategory")}
             onChange={(e) => onBrandDraftChange(gKey, e.target.value)}
@@ -496,24 +563,58 @@ function EditableGroupBlock({
         </td>
       </tr>
       <tr className={HORECA_HEADER_BG}>
-        <th className="catalog-col-sku catalog-cell w-[88px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
+        <ResizableColumnHead
+          align="center"
+          className="catalog-col-sku"
+          rowHeightPx={rowHeightPx}
+          headerFontPx={headerFontPx}
+          onResize={(d) => resizeCol("sku", d)}
+        >
           {t("catalog.sku")}
-        </th>
-        <th className="catalog-col-name catalog-cell border border-border/50 text-left font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
+        </ResizableColumnHead>
+        <ResizableColumnHead
+          className="catalog-col-name"
+          rowHeightPx={rowHeightPx}
+          headerFontPx={headerFontPx}
+          onResize={(d) => resizeCol("name", d)}
+        >
           {t("catalog.article")}
-        </th>
-        <th className="max-md:hidden w-[130px] border border-border/50 px-2 py-2 text-left text-xs font-bold">
+        </ResizableColumnHead>
+        <ResizableColumnHead
+          className="catalog-col-brand max-md:hidden"
+          rowHeightPx={rowHeightPx}
+          headerFontPx={headerFontPx}
+          onResize={(d) => resizeCol("brand", d)}
+        >
           {t("catalog.brand")}
-        </th>
-        <th className="catalog-col-price catalog-cell w-[100px] border border-border/50 text-right font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
+        </ResizableColumnHead>
+        <ResizableColumnHead
+          align="right"
+          className="catalog-col-price"
+          rowHeightPx={rowHeightPx}
+          headerFontPx={headerFontPx}
+          onResize={(d) => resizeCol("price", d)}
+        >
           {t("catalog.unitPrice")}
-        </th>
-        <th className="catalog-col-pdv catalog-cell w-[52px] border border-border/50 text-center font-bold max-md:w-auto md:px-2 md:py-2 md:text-xs">
+        </ResizableColumnHead>
+        <ResizableColumnHead
+          align="center"
+          className="catalog-col-pdv"
+          rowHeightPx={rowHeightPx}
+          headerFontPx={headerFontPx}
+          onResize={(d) => resizeCol("pdv", d)}
+        >
           {t("catalog.vat")}
-        </th>
-        <th className="catalog-col-actions catalog-cell w-[44px] border border-border/50 text-center font-bold max-md:w-auto md:px-1 md:py-2 md:text-xs">
+        </ResizableColumnHead>
+        <ResizableColumnHead
+          align="center"
+          className="catalog-col-actions"
+          rowHeightPx={rowHeightPx}
+          headerFontPx={headerFontPx}
+          resizable={false}
+        >
           {""}
-        </th>
+        </ResizableColumnHead>
       </tr>
       {products.map((product, index) => (
         <EditableProductRow
@@ -523,6 +624,8 @@ function EditableGroupBlock({
           stripe={index % 2 === 0}
           isDirty={dirtyRowIds.has(product.id)}
           isDeleting={deletingId === product.id}
+          rowHeightPx={rowHeightPx}
+          cellMetrics={cellMetrics}
           onDraftChange={(patch) => onRowDraftChange(product.id, patch)}
           onDelete={() => onDelete(product)}
           t={t}
@@ -532,12 +635,46 @@ function EditableGroupBlock({
   );
 }
 
+function ProductsDataCell({
+  colKey,
+  children,
+  className,
+}: {
+  colKey: ProductsCatalogColumnKey;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { cellMetrics } = useProductsCatalogLayout();
+  const m = cellMetrics(colKey);
+
+  return (
+    <td
+      className={cn("catalog-cell border border-border/40", className)}
+      style={{
+        height: m.rowHeightPx,
+        maxHeight: m.rowHeightPx,
+        fontSize: m.fontPx,
+        lineHeight: 1.25,
+        paddingTop: m.paddingYPx,
+        paddingBottom: m.paddingYPx,
+        paddingLeft: 4,
+        paddingRight: 4,
+        verticalAlign: "middle",
+      }}
+    >
+      {children}
+    </td>
+  );
+}
+
 function EditableProductRow({
   product,
   draft,
   stripe,
   isDirty,
   isDeleting,
+  rowHeightPx,
+  cellMetrics,
   onDraftChange,
   onDelete,
   t,
@@ -547,12 +684,25 @@ function EditableProductRow({
   stripe: boolean;
   isDirty: boolean;
   isDeleting: boolean;
+  rowHeightPx: number;
+  cellMetrics: (key: ProductsCatalogColumnKey) => import("@/lib/catalog-table-layout").CellMetrics;
   onDraftChange: (patch: Partial<RowDraft>) => void;
   onDelete: () => void;
   t: TranslateFn;
 }) {
-  const cellInputClass =
-    "h-8 max-md:h-7 max-md:min-h-0 max-md:text-[11px] border-transparent bg-transparent px-1 py-1 text-sm shadow-none focus-visible:border-input focus-visible:bg-background focus-visible:ring-1";
+  const inputClass =
+    "w-full min-w-0 border-transparent bg-transparent shadow-none focus-visible:border-input focus-visible:bg-background focus-visible:ring-1";
+
+  const inputStyle = (key: ProductsCatalogColumnKey) => {
+    const m = cellMetrics(key);
+    return {
+      height: Math.max(20, rowHeightPx - 6),
+      fontSize: m.fontPx,
+      padding: `${Math.max(1, m.paddingYPx - 1)}px 4px`,
+    };
+  };
+
+  const btnSize = Math.max(24, rowHeightPx - 4);
 
   return (
     <tr
@@ -561,56 +711,68 @@ function EditableProductRow({
         isDirty && "bg-amber-500/8 dark:bg-amber-400/10",
         isDeleting && "opacity-50",
       )}
+      style={{ height: rowHeightPx }}
     >
-      <td className="catalog-col-sku catalog-cell border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
+      <ProductsDataCell colKey="sku" className="catalog-col-sku">
         <Input
-          className={cn(cellInputClass, "font-mono text-xs")}
+          className={cn(inputClass, "font-mono")}
+          style={inputStyle("sku")}
           value={draft.sku}
           onChange={(e) => onDraftChange({ sku: e.target.value })}
           onClick={(e) => e.stopPropagation()}
         />
-      </td>
-      <td className="catalog-col-name catalog-cell border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
+      </ProductsDataCell>
+      <ProductsDataCell colKey="name" className="catalog-col-name">
+        <ProductNameTooltip text={draft.name} className="block w-full min-w-0">
+          <Input
+            className={cn(inputClass, "truncate")}
+            style={inputStyle("name")}
+            value={draft.name}
+            onChange={(e) => onDraftChange({ name: e.target.value })}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </ProductNameTooltip>
+      </ProductsDataCell>
+      <ProductsDataCell colKey="brand" className="catalog-col-brand max-md:hidden">
         <Input
-          className={cellInputClass}
-          value={draft.name}
-          onChange={(e) => onDraftChange({ name: e.target.value })}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </td>
-      <td className="max-md:hidden border border-border/40 px-1 py-0.5">
-        <Input
-          className={cn(cellInputClass, "text-xs")}
+          className={inputClass}
+          style={inputStyle("brand")}
           value={draft.category}
           placeholder={t("catalog.brandPlaceholder")}
           onChange={(e) => onDraftChange({ category: e.target.value })}
           onClick={(e) => e.stopPropagation()}
         />
-      </td>
-      <td className="catalog-col-price catalog-cell catalog-cell-price border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
+      </ProductsDataCell>
+      <ProductsDataCell
+        colKey="price"
+        className="catalog-col-price catalog-cell-price"
+      >
         <Input
-          className={cn(cellInputClass, "text-right font-mono text-xs")}
+          className={cn(inputClass, "text-right font-mono tabular-nums")}
+          style={inputStyle("price")}
           inputMode="decimal"
           value={draft.price}
           onChange={(e) => onDraftChange({ price: e.target.value })}
           onClick={(e) => e.stopPropagation()}
         />
-      </td>
-      <td className="catalog-col-pdv catalog-cell border border-border/40 max-md:px-0.5 md:px-1 md:py-0.5">
+      </ProductsDataCell>
+      <ProductsDataCell colKey="pdv" className="catalog-col-pdv">
         <Input
-          className={cn(cellInputClass, "text-center text-xs")}
+          className={cn(inputClass, "text-center font-mono")}
+          style={inputStyle("pdv")}
           inputMode="decimal"
           value={draft.pdv}
           onChange={(e) => onDraftChange({ pdv: e.target.value })}
           onClick={(e) => e.stopPropagation()}
         />
-      </td>
-      <td className="catalog-col-actions catalog-cell border border-border/40 max-md:px-0 md:px-0.5 md:py-0.5 text-center">
+      </ProductsDataCell>
+      <ProductsDataCell colKey="actions" className="catalog-col-actions text-center">
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          style={{ width: btnSize, height: btnSize }}
           disabled={isDeleting}
           onClick={onDelete}
           title={t("products.deleteProduct")}
@@ -621,7 +783,7 @@ function EditableProductRow({
             <Trash2 className="h-4 w-4" />
           )}
         </Button>
-      </td>
+      </ProductsDataCell>
     </tr>
   );
 }

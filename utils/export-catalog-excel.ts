@@ -1,5 +1,9 @@
 import ExcelJS from "exceljs";
 import type { Product } from "@/types";
+import {
+  catalogHeaderRowValues,
+  catalogRowToExcelValues,
+} from "@/utils/catalog-excel";
 import { groupProductsByCategory } from "@/utils/catalog-display";
 
 export async function buildCatalogExcelBuffer(products: Product[]): Promise<ArrayBuffer> {
@@ -8,37 +12,37 @@ export async function buildCatalogExcelBuffer(products: Product[]): Promise<Arra
 
   const groups = groupProductsByCategory(products);
 
-  sheet.getRow(1).values = ["Šifra", "Artikal", "Brend", "Cena bez PDV", "PDV %", "Jedinica"];
-  sheet.getRow(1).font = { bold: true };
-  sheet.getRow(1).fill = {
+  const headerRow = sheet.addRow(catalogHeaderRowValues());
+  headerRow.font = { bold: true };
+  headerRow.fill = {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "FFD4CCE8" },
   };
 
-  let rowIndex = 2;
   for (const group of groups) {
-    const brandRow = sheet.getRow(rowIndex);
-    brandRow.getCell(1).value = group.groupLabel;
-    sheet.mergeCells(rowIndex, 1, rowIndex, 6);
+    const brandRow = sheet.addRow([group.groupLabel]);
+    const brandRowNumber = brandRow.number;
+    sheet.mergeCells(brandRowNumber, 1, brandRowNumber, catalogHeaderRowValues().length);
     brandRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     brandRow.fill = {
       type: "pattern",
       pattern: "solid",
       fgColor: { argb: "FFA89BC9" },
     };
-    rowIndex++;
 
     for (const product of group.products) {
-      const row = sheet.getRow(rowIndex);
-      row.getCell(1).value = product.sku;
-      row.getCell(2).value = product.name;
-      row.getCell(3).value = product.category ?? "";
-      row.getCell(4).value = product.price;
-      row.getCell(5).value = product.pdv_percent;
-      row.getCell(6).value = product.measure_unit ?? "kom";
-      row.getCell(4).numFmt = '#,##0.00 "RSD"';
-      rowIndex++;
+      const dataRow = sheet.addRow(
+        catalogRowToExcelValues({
+          sku: product.sku,
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          pdv_percent: product.pdv_percent,
+          measure_unit: product.measure_unit,
+        }),
+      );
+      dataRow.getCell(4).numFmt = '#,##0.00 "RSD"';
     }
   }
 

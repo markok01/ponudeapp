@@ -67,7 +67,7 @@ export function PwaInstallBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 mx-auto max-w-lg no-print">
+    <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-3 z-40 mx-auto max-w-lg no-print max-lg:bottom-[max(4.75rem,env(safe-area-inset-bottom))]">
       <div className="flex items-start gap-3 rounded-[var(--radius)] border border-primary/20 bg-card/95 p-4 shadow-[var(--shadow-card)] backdrop-blur-md">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
           <Download className="h-5 w-5 text-primary" />

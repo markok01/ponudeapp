@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo, useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { QuoteDiscountInput } from "@/components/quotes/quote-discount-input";
 import { Label } from "@/components/ui/label";
+import { TruncatedProductName } from "@/components/ui/product-name-tooltip";
 import { cn } from "@/lib/utils";
 import type { QuoteLineDraft } from "@/types";
 import { formatCurrency } from "@/utils/format";
@@ -11,6 +13,7 @@ import {
   quoteLineGrossAfterDiscount,
   quoteLineNetAfterDiscount,
 } from "@/utils/prices";
+import { handleDiscountInputKeyDown } from "@/utils/quote-line-discount-nav";
 
 interface QuoteLineCardsProps {
   lines: QuoteLineDraft[];
@@ -31,8 +34,14 @@ export function QuoteLineCards({
   onRemove,
   invalidDiscountIds = [],
 }: QuoteLineCardsProps) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const productIds = useMemo(
+    () => lines.map((line) => line.product.id),
+    [lines],
+  );
+
   return (
-    <div className="quote-lines-cards space-y-2 lg:hidden">
+    <div ref={listRef} className="quote-lines-cards space-y-2 lg:hidden">
       {lines.map((line) => {
         const netLine = quoteLineNetAfterDiscount(
           line.product.price,
@@ -61,9 +70,11 @@ export function QuoteLineCards({
                 <p className="font-mono text-[10px] text-muted-foreground">
                   {line.product.sku}
                 </p>
-                <p className="mt-0.5 line-clamp-2 text-[13px] font-medium leading-snug">
-                  {line.product.name}
-                </p>
+                <TruncatedProductName
+                  name={line.product.name}
+                  lines={2}
+                  className="mt-0.5 text-[13px] font-medium leading-snug"
+                />
               </div>
               <Button
                 type="button"
@@ -78,22 +89,33 @@ export function QuoteLineCards({
             </div>
 
             <div className="mt-2 flex items-end justify-between gap-2">
-              <div className="min-w-[5rem]">
-                <Label className="text-[10px]">Rabat %</Label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  className={cn("mt-0.5 h-8 text-xs", badDiscount && "border-destructive")}
+              <div className="min-w-[4.5rem]">
+                <Label className="text-[10px]">Rabat</Label>
+                <QuoteDiscountInput
+                  data-quote-discount-input={line.product.id}
+                  invalid={badDiscount}
+                  className="mt-0.5"
+                  style={{ height: 32, fontSize: "0.8125rem" }}
                   value={discountInputValue(line.product.id, line.discount_percent)}
                   onChange={(e) => onDiscountChange(line.product.id, e.target.value)}
                   onBlur={() => onDiscountBlur(line.product.id)}
+                  onKeyDown={(e) =>
+                    handleDiscountInputKeyDown(
+                      e,
+                      listRef.current,
+                      productIds,
+                      line.product.id,
+                      () => onDiscountBlur(line.product.id),
+                    )
+                  }
                 />
               </div>
               <div className="text-right text-xs tabular-nums">
-                <p className="text-[10px] text-muted-foreground">Sa PDV</p>
-                <p className="font-semibold text-primary">{formatCurrency(grossLine)}</p>
+                <p className="text-[10px] text-muted-foreground">Ukupno bez PDV</p>
+                <p className="font-semibold text-price">{formatCurrency(netLine)}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  bez PDV {formatCurrency(netLine)}
+                  sa PDV{" "}
+                  <span className="tabular-nums">{formatCurrency(grossLine)}</span>
                 </p>
               </div>
             </div>

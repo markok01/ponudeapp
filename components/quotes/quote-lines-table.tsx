@@ -1,19 +1,26 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import { Trash2 } from "lucide-react";
+import { useContainerWidth } from "@/hooks/use-container-width";
 import { ResizableColumnHead } from "@/components/quotes/resizable-column-head";
 import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { QuoteDiscountInput } from "@/components/quotes/quote-discount-input";
+import { TruncatedProductName } from "@/components/ui/product-name-tooltip";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import type { QuoteColumnKey } from "@/lib/quote-workspace-layout";
+import {
+  visibleQuoteTableColumns,
+  type QuoteColumnKey,
+} from "@/lib/quote-workspace-layout";
 import type { QuoteLineDraft } from "@/types";
 import { formatCurrency } from "@/utils/format";
 import {
-  quoteLineGrossAfterDiscount,
+  quoteLineNetAfterDiscount,
   unitPriceWithPdv,
 } from "@/utils/prices";
+import { handleDiscountInputKeyDown } from "@/utils/quote-line-discount-nav";
 
 interface QuoteLinesTableProps {
   lines: QuoteLineDraft[];
@@ -35,21 +42,21 @@ function QuoteDataCell({
   className?: string;
   align?: "left" | "center" | "right";
 }) {
-  const { layout, quoteCellMetrics } = useQuoteWorkspaceLayout();
+  const { layout, quoteCellMetrics, isQuoteFluid } = useQuoteWorkspaceLayout();
   const m = quoteCellMetrics(colKey);
 
   return (
     <td
       className={cn(
-        "border-b border-border/50 align-top",
+        "catalog-cell border-b border-border/50 align-top",
         align === "center" && "text-center",
         align === "right" && "text-right",
         className,
       )}
       style={{
-        width: layout.quoteCols[colKey],
-        height: layout.rowHeightPx,
-        maxHeight: layout.rowHeightPx,
+        width: isQuoteFluid ? undefined : layout.quoteCols[colKey],
+        height: m.rowHeightPx,
+        maxHeight: m.rowHeightPx,
         fontSize: m.fontPx,
         lineHeight: 1.2,
         paddingTop: m.paddingYPx,
@@ -72,70 +79,109 @@ export function QuoteLinesTable({
   onRemove,
 }: QuoteLinesTableProps) {
   const t = useTranslations();
-  const { layout, resizeQuoteCol, quoteCellMetrics } = useQuoteWorkspaceLayout();
+  const {
+    layout,
+    resizeQuoteCol,
+    quoteCellMetrics,
+    quoteColStyles,
+    quoteTableMinWidth,
+    isQuoteFluid,
+    hideQuoteIncVat,
+    isPanelResizing,
+    quotePanelWidth,
+    setQuotePanelWidth,
+  } = useQuoteWorkspaceLayout();
+  const visibleCols = visibleQuoteTableColumns(hideQuoteIncVat);
+  const { ref: panelRef, width: measuredWidth } = useContainerWidth<HTMLDivElement>({
+    observe: !isPanelResizing,
+  });
+  const panelWidth = isPanelResizing ? quotePanelWidth : measuredWidth;
   const cols = layout.quoteCols;
   const rowH = layout.rowHeightPx;
   const discMetrics = quoteCellMetrics("discount");
+  const productIds = useMemo(
+    () => lines.map((line) => line.product.id),
+    [lines],
+  );
+
+  useEffect(() => {
+    setQuotePanelWidth(panelWidth);
+  }, [panelWidth, setQuotePanelWidth]);
 
   return (
-    <div className="quote-lines-scroll min-h-0 flex-1 overflow-auto overscroll-contain rounded-[var(--radius-md)] border border-border/80">
+    <div
+      ref={panelRef}
+      className="quote-lines-scroll catalog-scroll-wrap min-h-0 flex-1 overflow-auto overscroll-contain rounded-[var(--radius-md)] border border-border/80"
+      data-catalog-fluid={isQuoteFluid ? "true" : "false"}
+    >
       <table
-        className="quote-lines-table w-full border-collapse"
-        style={{ tableLayout: "fixed" }}
+        className="quote-lines-table catalog-table w-full border-collapse text-sm"
+        style={{
+          tableLayout: "fixed",
+          minWidth: quoteTableMinWidth,
+          width: isQuoteFluid ? "100%" : quoteTableMinWidth,
+        }}
       >
         <colgroup>
-          <col style={{ width: cols.sku }} />
-          <col style={{ width: cols.name }} />
-          <col style={{ width: cols.exVat }} />
-          <col style={{ width: cols.incVat }} />
-          <col style={{ width: cols.discount }} />
-          <col style={{ width: cols.total }} />
-          <col style={{ width: cols.actions }} />
+          {visibleCols.map((key) => (
+            <col key={key} style={{ width: quoteColStyles[key] }} />
+          ))}
         </colgroup>
         <thead className="sticky top-0 z-10 bg-muted/95 shadow-sm backdrop-blur-sm">
           <tr>
             <ResizableColumnHead
+              variant="quote"
               align="center"
               onResize={(d) => resizeQuoteCol("sku", d)}
             >
               {t("catalog.sku")}
             </ResizableColumnHead>
-            <ResizableColumnHead onResize={(d) => resizeQuoteCol("name", d)}>
+            <ResizableColumnHead
+              variant="quote"
+              onResize={(d) => resizeQuoteCol("name", d)}
+            >
               {t("quotes.name")}
             </ResizableColumnHead>
             <ResizableColumnHead
+              variant="quote"
               align="right"
               onResize={(d) => resizeQuoteCol("exVat", d)}
             >
               {t("quotes.exVat")}
             </ResizableColumnHead>
+            {!hideQuoteIncVat ? (
+              <ResizableColumnHead
+                variant="quote"
+                align="right"
+                onResize={(d) => resizeQuoteCol("incVat", d)}
+              >
+                {t("quotes.incVat")}
+              </ResizableColumnHead>
+            ) : null}
             <ResizableColumnHead
-              align="right"
-              onResize={(d) => resizeQuoteCol("incVat", d)}
+              variant="quote"
+              onResize={(d) => resizeQuoteCol("discount", d)}
             >
-              {t("quotes.incVat")}
-            </ResizableColumnHead>
-            <ResizableColumnHead onResize={(d) => resizeQuoteCol("discount", d)}>
               {t("quotes.discount")}
             </ResizableColumnHead>
             <ResizableColumnHead
+              variant="quote"
               align="right"
               onResize={(d) => resizeQuoteCol("total", d)}
             >
               {t("common.total")}
             </ResizableColumnHead>
             <th
-              className="border border-border/50"
-              style={{ width: cols.actions, height: rowH }}
+              className="catalog-cell border border-border/50"
+              style={{ width: quoteColStyles.actions, height: rowH }}
             />
           </tr>
         </thead>
         <tbody>
           {lines.map((line) => {
-            const grossLine = quoteLineGrossAfterDiscount(
+            const netLineTotal = quoteLineNetAfterDiscount(
               line.product.price,
               line.discount_percent,
-              line.product.pdv_percent,
               1,
             );
             const badDiscount =
@@ -155,31 +201,42 @@ export function QuoteLinesTable({
                   {line.product.sku}
                 </QuoteDataCell>
                 <QuoteDataCell colKey="name" className="font-medium">
-                  <span className="block overflow-hidden text-ellipsis whitespace-nowrap">
-                    {line.product.name}
-                  </span>
+                  <TruncatedProductName
+                    name={line.product.name}
+                    className="font-medium"
+                  />
                 </QuoteDataCell>
-                <QuoteDataCell colKey="exVat" align="right" className="tabular-nums">
+                <QuoteDataCell
+                  colKey="exVat"
+                  align="right"
+                  className="overflow-hidden text-ellipsis whitespace-nowrap tabular-nums font-semibold text-price"
+                >
                   {formatCurrency(line.product.price)}
                 </QuoteDataCell>
-                <QuoteDataCell colKey="incVat" align="right" className="tabular-nums">
-                  {formatCurrency(
-                    unitPriceWithPdv(
-                      line.product.price,
-                      line.product.pdv_percent,
-                    ),
-                  )}
-                </QuoteDataCell>
-                <QuoteDataCell colKey="discount">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    className={cn(
-                      "w-full min-w-0 px-1 tabular-nums",
-                      badDiscount && "border-destructive",
+                {!hideQuoteIncVat ? (
+                  <QuoteDataCell
+                    colKey="incVat"
+                    align="right"
+                    className="overflow-hidden text-ellipsis whitespace-nowrap tabular-nums"
+                  >
+                    {formatCurrency(
+                      unitPriceWithPdv(
+                        line.product.price,
+                        line.product.pdv_percent,
+                      ),
                     )}
+                  </QuoteDataCell>
+                ) : null}
+                <QuoteDataCell
+                  colKey="discount"
+                  align="center"
+                  className="px-0.5 align-middle"
+                >
+                  <QuoteDiscountInput
+                    data-quote-discount-input={line.product.id}
+                    invalid={badDiscount}
                     style={{
-                      height: Math.max(20, rowH - 8),
+                      height: Math.max(22, rowH - 6),
                       fontSize: discMetrics.fontPx,
                     }}
                     value={discountInputValue(
@@ -190,18 +247,30 @@ export function QuoteLinesTable({
                       onDiscountChange(line.product.id, e.target.value)
                     }
                     onBlur={() => onDiscountBlur(line.product.id)}
+                    onKeyDown={(e) =>
+                      handleDiscountInputKeyDown(
+                        e,
+                        panelRef.current,
+                        productIds,
+                        line.product.id,
+                        () => onDiscountBlur(line.product.id),
+                      )
+                    }
                   />
                 </QuoteDataCell>
                 <QuoteDataCell
                   colKey="total"
                   align="right"
-                  className="font-semibold tabular-nums text-primary"
+                  className="overflow-hidden text-ellipsis whitespace-nowrap tabular-nums font-semibold text-price"
                 >
-                  {formatCurrency(grossLine)}
+                  {formatCurrency(netLineTotal)}
                 </QuoteDataCell>
                 <td
-                  className="border-b border-border/50 px-0.5 align-middle"
-                  style={{ width: cols.actions, height: rowH }}
+                  className="catalog-cell border-b border-border/50 px-0.5 align-middle"
+                  style={{
+                    width: isQuoteFluid ? undefined : cols.actions,
+                    height: rowH,
+                  }}
                 >
                   <Button
                     variant="ghost"

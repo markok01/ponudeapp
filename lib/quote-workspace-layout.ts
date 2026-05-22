@@ -53,9 +53,16 @@ export const QUOTE_LAYOUT_LIMITS = {
   rowHeightPx: { min: 22, max: 52 },
 };
 
-export function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n));
-}
+import {
+  buildCellMetrics,
+  clamp,
+  columnWidthsToStyles,
+  cellFontSizePx,
+  cellPaddingYPx,
+  responsiveFontPx,
+} from "@/lib/catalog-table-layout";
+
+export { clamp, cellFontSizePx, cellPaddingYPx };
 
 export function loadQuoteWorkspaceLayout(): QuoteWorkspaceLayout {
   if (typeof window === "undefined") return DEFAULT_QUOTE_WORKSPACE_LAYOUT;
@@ -154,50 +161,83 @@ export function saveQuoteWorkspaceLayout(layout: QuoteWorkspaceLayout): void {
   }
 }
 
-/** Font u ćeliji skalira se sa širinom kolone i visinom reda. */
-export function cellFontSizePx(
-  colWidthPx: number,
-  rowHeightPx: number,
-  kind: "compact" | "name" | "header" = "compact",
+export const QUOTE_TABLE_COLUMN_ORDER: QuoteColumnKey[] = [
+  "sku",
+  "name",
+  "exVat",
+  "incVat",
+  "discount",
+  "total",
+  "actions",
+];
+
+export function sumQuoteColumnWidths(
+  cols: Record<QuoteColumnKey, number>,
+  exclude: QuoteColumnKey[] = [],
 ): number {
-  const rowScale = rowHeightPx / DEFAULT_QUOTE_WORKSPACE_LAYOUT.rowHeightPx;
-  const colScale =
-    colWidthPx /
-    (kind === "name"
-      ? DEFAULT_QUOTE_WORKSPACE_LAYOUT.catalogCols.name
-      : kind === "header"
-        ? 90
-        : DEFAULT_QUOTE_WORKSPACE_LAYOUT.catalogCols.sku);
-  const base = kind === "name" ? 12 : kind === "header" ? 10 : 11;
-  const scaled = base * Math.min(rowScale, colScale);
-  return Math.round(clamp(scaled, 8, 14));
+  const skip = new Set(exclude);
+  return QUOTE_TABLE_COLUMN_ORDER.filter((k) => !skip.has(k)).reduce(
+    (sum, key) => sum + cols[key],
+    0,
+  );
 }
 
-export function cellPaddingYPx(rowHeightPx: number, fontPx: number): number {
-  return Math.max(2, Math.floor((rowHeightPx - fontPx) / 2) - 1);
+/** Kad je panel stavki už od zbir širina kolona, sakrij „Sa PDV“ da se cene ne preklapaju. */
+export function shouldHideQuoteIncVatColumn(
+  panelWidthPx: number,
+  cols: Record<QuoteColumnKey, number>,
+): boolean {
+  if (panelWidthPx <= 0) return false;
+  const full = sumQuoteColumnWidths(cols);
+  return panelWidthPx < full - 4;
+}
+
+export function visibleQuoteTableColumns(hideIncVat: boolean): QuoteColumnKey[] {
+  return hideIncVat
+    ? QUOTE_TABLE_COLUMN_ORDER.filter((k) => k !== "incVat")
+    : QUOTE_TABLE_COLUMN_ORDER;
 }
 
 export function layoutToStyleVars(
   layout: QuoteWorkspaceLayout,
+  catalogPanelWidthPx = 0,
+  quotePanelWidthPx = 0,
 ): Record<string, string> {
   const row = layout.rowHeightPx;
-  const nameFont = cellFontSizePx(layout.catalogCols.name, row, "name");
+  const catalogStyles = columnWidthsToStyles(
+    layout.catalogCols,
+    catalogPanelWidthPx,
+  );
+  const hideIncVat = shouldHideQuoteIncVatColumn(
+    quotePanelWidthPx,
+    layout.quoteCols,
+  );
+  const quoteIncVatExclude: QuoteColumnKey[] = hideIncVat ? ["incVat"] : [];
+  const quoteStyles = columnWidthsToStyles(layout.quoteCols, quotePanelWidthPx, {
+    exclude: quoteIncVatExclude,
+  });
+  const nameMetrics = buildCellMetrics(
+    layout.catalogCols.name,
+    row,
+    catalogPanelWidthPx,
+    "name",
+  );
   return {
     ["--quote-row-h" as string]: `${row}px`,
     ["--quote-catalog-pct" as string]: `${layout.catalogPanelPct}%`,
-    ["--quote-cell-font" as string]: `${cellFontSizePx(layout.catalogCols.sku, row)}px`,
-    ["--quote-name-font" as string]: `${nameFont}px`,
-    ["--quote-header-font" as string]: `${cellFontSizePx(90, row, "header")}px`,
-    ["--catalog-col-sku" as string]: `${layout.catalogCols.sku}px`,
-    ["--catalog-col-name" as string]: `${layout.catalogCols.name}px`,
-    ["--catalog-col-price" as string]: `${layout.catalogCols.price}px`,
-    ["--catalog-col-pdv" as string]: `${layout.catalogCols.pdv}px`,
-    ["--quote-col-sku" as string]: `${layout.quoteCols.sku}px`,
-    ["--quote-col-name" as string]: `${layout.quoteCols.name}px`,
-    ["--quote-col-exvat" as string]: `${layout.quoteCols.exVat}px`,
-    ["--quote-col-incvat" as string]: `${layout.quoteCols.incVat}px`,
-    ["--quote-col-disc" as string]: `${layout.quoteCols.discount}px`,
-    ["--quote-col-total" as string]: `${layout.quoteCols.total}px`,
-    ["--quote-col-actions" as string]: `${layout.quoteCols.actions}px`,
+    ["--quote-cell-font" as string]: `${nameMetrics.fontPx}px`,
+    ["--quote-name-font" as string]: `${nameMetrics.fontPx}px`,
+    ["--quote-header-font" as string]: `${responsiveFontPx(catalogPanelWidthPx, "header")}px`,
+    ["--catalog-col-sku" as string]: catalogStyles.sku,
+    ["--catalog-col-name" as string]: catalogStyles.name,
+    ["--catalog-col-price" as string]: catalogStyles.price,
+    ["--catalog-col-pdv" as string]: catalogStyles.pdv,
+    ["--quote-col-sku" as string]: quoteStyles.sku,
+    ["--quote-col-name" as string]: quoteStyles.name,
+    ["--quote-col-exvat" as string]: quoteStyles.exVat,
+    ["--quote-col-incvat" as string]: quoteStyles.incVat,
+    ["--quote-col-disc" as string]: quoteStyles.discount,
+    ["--quote-col-total" as string]: quoteStyles.total,
+    ["--quote-col-actions" as string]: quoteStyles.actions,
   };
 }

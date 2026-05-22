@@ -7,6 +7,7 @@ import {
 import {
   createUserSession,
   DeviceLimitError,
+  getValidUserSession,
   revokeUserSession,
 } from "@/services/user-sessions";
 import {
@@ -189,6 +190,23 @@ export async function POST(request: NextRequest) {
       }
       throw err;
     }
+
+    const sessionOk = await getValidUserSession(sessionId, user.id);
+    if (!sessionOk) {
+      console.error("POST /api/auth/login — session not persisted", {
+        userId: user.id,
+        sidPrefix: sessionId.slice(0, 8),
+      });
+      return NextResponse.json(
+        {
+          error:
+            "Sesija nije sačuvana u bazi (user_sessions.token_hash). Pokrenite scripts/ponudaapp-create-auth-tables.sql na bazi ponudaapp.",
+          code: "session_persist_failed",
+        },
+        { status: 500 },
+      );
+    }
+
     const token = createSessionToken(
       {
         id: user.id,

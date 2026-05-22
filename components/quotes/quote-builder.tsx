@@ -14,6 +14,7 @@ import { QuoteLinesTable } from "@/components/quotes/quote-lines-table";
 import { QuoteWorkspaceLayoutProvider } from "@/components/quotes/quote-workspace-layout-context";
 import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
 import { QuoteWorkspaceSplit } from "@/components/quotes/quote-workspace-split";
+import type { QuoteWorkspaceMobileTab } from "@/components/quotes/quote-workspace-mobile-tabs";
 import { RowHeightHandle } from "@/components/quotes/row-height-handle";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -464,6 +465,15 @@ function QuoteBuilderWorkspace({
   totals: { net: number; gross: number };
 }) {
   const { styleVars } = useQuoteWorkspaceLayout();
+  const [mobilePanel, setMobilePanel] = useState<QuoteWorkspaceMobileTab>("catalog");
+
+  const handleSelectProduct = useCallback(
+    (product: Product) => {
+      addProduct(product);
+      setMobilePanel("quote");
+    },
+    [addProduct],
+  );
 
   return (
     <div
@@ -530,6 +540,9 @@ function QuoteBuilderWorkspace({
       ) : null}
 
       <QuoteWorkspaceSplit
+        mobileTab={mobilePanel}
+        onMobileTabChange={setMobilePanel}
+        quoteLineCount={lines.length}
         catalog={
           <>
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2 sm:px-3">
@@ -570,7 +583,7 @@ function QuoteBuilderWorkspace({
                       products={displayProducts}
                       inQuoteIds={inQuoteIds}
                       activeProductId={activeProductId}
-                      onSelect={addProduct}
+                      onSelect={handleSelectProduct}
                     />
                   </div>
                   <div className="shrink-0 border-t border-border/50 pt-1.5">
@@ -597,7 +610,7 @@ function QuoteBuilderWorkspace({
                 <RowHeightHandle />
               </div>
             </div>
-            <div className="quote-lines-body p-2">
+            <div className="quote-lines-body flex min-h-0 flex-1 flex-col p-2">
               {lines.length === 0 ? (
                 <EmptyState
                   icon={Plus}
@@ -606,20 +619,22 @@ function QuoteBuilderWorkspace({
                 />
               ) : (
                 <>
-                  <QuoteLineCards
-                    lines={lines}
-                    activeProductId={activeProductId}
-                    discountInputValue={discountInputValue}
-                    onDiscountChange={handleDiscountChange}
-                    onDiscountBlur={handleDiscountBlur}
-                    onRemove={removeLine}
-                    invalidDiscountIds={lines
-                      .filter(
-                        (l) =>
-                          l.discount_percent < 0 || l.discount_percent > 100,
-                      )
-                      .map((l) => l.product.id)}
-                  />
+                  <div className="quote-lines-cards-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain lg:hidden">
+                    <QuoteLineCards
+                      lines={lines}
+                      activeProductId={activeProductId}
+                      discountInputValue={discountInputValue}
+                      onDiscountChange={handleDiscountChange}
+                      onDiscountBlur={handleDiscountBlur}
+                      onRemove={removeLine}
+                      invalidDiscountIds={lines
+                        .filter(
+                          (l) =>
+                            l.discount_percent < 0 || l.discount_percent > 100,
+                        )
+                        .map((l) => l.product.id)}
+                    />
+                  </div>
                   <div className="quote-lines-desktop hidden min-h-0 flex-1 flex-col overflow-hidden lg:flex">
                     <QuoteLinesTable
                       lines={lines}
@@ -630,7 +645,7 @@ function QuoteBuilderWorkspace({
                       onRemove={removeLine}
                     />
                   </div>
-                  <div className="quote-workspace-totals shrink-0 grid gap-2 rounded-[var(--radius-md)] border border-border/80 bg-accent/30 px-3 py-2 sm:grid-cols-2">
+                  <div className="quote-workspace-totals mt-2 shrink-0 grid gap-2 rounded-[var(--radius-md)] border border-border/80 bg-accent/30 px-3 py-2 sm:grid-cols-2">
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                         {t("quotes.totalExVat")}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AppLogo } from "@/components/brand/app-logo";
 import { toast } from "sonner";
@@ -17,12 +17,12 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { useTranslations } from "@/lib/i18n/locale-provider";
+import { safeNextPath } from "@/lib/safe-next-path";
 
 export default function LoginPageClient() {
   const t = useTranslations();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/";
+  const next = safeNextPath(searchParams.get("next"));
   const revoked = searchParams.get("reason") === "session_revoked";
 
   const [email, setEmail] = useState("");
@@ -42,21 +42,29 @@ export default function LoginPageClient() {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, remember }),
       });
-      const data = (await res.json()) as { error?: string; code?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        code?: string;
+        authEnabled?: boolean;
+      };
       if (!res.ok) {
         if (data.code === "device_limit") {
           toast.error(t("auth.deviceLimit"));
           return;
         }
-        throw new Error(data.error);
+        if (data.code === "session_persist_failed") {
+          toast.error(data.error ?? t("auth.sessionNotActive"));
+          return;
+        }
+        throw new Error(data.error ?? t("auth.signInFailed"));
       }
 
       toast.success(t("auth.signInSuccess"));
-      router.replace(next);
-      router.refresh();
+      window.location.assign(next);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("auth.signInFailed"));
     } finally {

@@ -119,6 +119,18 @@ export async function assertCanCreateSession(userId: number): Promise<void> {
   }
 }
 
+/** Uklanja zastarele sesije (pre token_hash migracije) koje blokiraju prijavu. */
+export async function purgeBrokenSessions(userId?: number): Promise<number> {
+  const result = userId
+    ? await execute(
+        `DELETE FROM user_sessions
+         WHERE user_id = ? AND token_hash IS NULL`,
+        [userId],
+      )
+    : await execute(`DELETE FROM user_sessions WHERE token_hash IS NULL`);
+  return result.affectedRows ?? 0;
+}
+
 export async function createUserSession(
   userId: number,
   maxAgeSec: number,
@@ -130,6 +142,7 @@ export async function createUserSession(
   },
 ): Promise<string> {
   await assertCanCreateSession(userId);
+  await purgeBrokenSessions(userId);
 
   const rowId = newSessionRowId();
   const rawToken = generateRawSessionToken();

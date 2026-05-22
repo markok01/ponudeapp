@@ -52,7 +52,7 @@ export function classifyHeaderKey(normalized: string): ColumnKind | null {
   }
   if (SKU_KEYS.has(normalized)) return "sku";
   if (NAME_KEYS.has(normalized)) return "name";
-  if (PRICE_KEYS.has(normalized)) return "price";
+  if (PRICE_KEYS.has(normalized) || normalized.includes("cena")) return "price";
   if (CATEGORY_KEYS.has(normalized)) return "category";
   if (PDV_KEYS.has(normalized)) return "pdv";
   return null;
@@ -69,6 +69,21 @@ export function buildHeaderMap(cells: string[]): Partial<Record<ColumnKind, numb
     }
   });
   return map;
+}
+
+/** Red proizvoda (šifra + naziv + cena), ne dekorativni naslov grupe. */
+export function rowLooksLikeProductLine(
+  sifra: string,
+  novaSifra: string,
+  name: string,
+  price: number | null,
+): boolean {
+  const sku = resolveSku(sifra, novaSifra).trim();
+  const productName = name.trim();
+  if (!sku || !productName || price == null) return false;
+  if (/^\d{3,8}$/.test(sku)) return true;
+  if (/\d{3,}/.test(sku) && productName.length >= 3) return true;
+  return sku.length >= 2 && productName.length >= 4 && /\d/.test(sku);
 }
 
 /** Table 1/2: šifra | nova šifra | artikal (x2) | tr.pak. | p.c. | PDV */
@@ -129,52 +144,164 @@ export function resolveSku(sifra: string, novaSifra: string): string {
 
 export function isHeaderRowCells(cells: string[]): boolean {
   const lower = cells.map((c) => c.toLowerCase()).join(" ");
-  return (
-    lower.includes("šifra") || lower.includes("sifra")
-  ) &&
-    (lower.includes("artikal") ||
-      lower.includes("artiakal") ||
-      lower.includes("p.c") ||
-      lower.includes("pc"));
+  const hasSku = lower.includes("šifra") || lower.includes("sifra");
+  const hasName = lower.includes("artikal") || lower.includes("artiakal");
+  const hasPrice =
+    lower.includes("p.c") || lower.includes("pc") || lower.includes("cena");
+  const hasPack = /tr\.?\s*pak/i.test(lower);
+  const hasPdv = lower.includes("pdv");
+  return hasSku && hasName && hasPrice && (hasPack || hasPdv);
 }
 
-export function isBrandRow(cells: string[]): string | null {
+/** Ćelija je naslov kolone (šifra, artikal, tr.pak., p.c., PDV), ne naziv brenda. */
+export function isCatalogColumnLabel(cell: string): boolean {
+  const t = cell.trim();
+  if (!t) return true;
+  if (/tr\.?\s*pak/i.test(t)) return true;
+  const key = normalizeHeaderKey(t);
+  return classifyHeaderKey(key) != null;
+}
+
+/** Samo naslovi kolona (šifra, artikal, tr.pak., p.c., PDV) — bez imena brenda. */
+export function isPureColumnHeaderRow(cells: string[]): boolean {
   const trimmed = cells.map((c) => c.trim()).filter(Boolean);
-  if (trimmed.length === 0) return null;
+  if (trimmed.length < 3) return false;
+  if (!trimmed.every((c) => isCatalogColumnLabel(c))) return false;
+  return isHeaderRowCells(trimmed);
+}
+
+const BREND_DASH_IN_TEXT =
+  /brend\s*[-–—:]\s*(.+?)(?:\s*[-–—]\s*|$)/i;
+
+function cleanBrandName(raw: string): string | null {
+  const name = raw
+    .trim()
+    .replace(/^['"„«»]+|['"„«»]+$/g, "")
+    .trim();
+  if (name.length < 2 || name.length >= 80) return null;
+  if (/^\d+$/.test(name)) return null;
+  if (isCatalogColumnLabel(name)) return null;
+  if (/^(šifra|sifra|artikal|p\.?\s*c|pdv|tr\.pak)/i.test(name)) return null;
+  return name;
+}
+
+/**
+ * Eksplicitno: „Brend - WOERLE“, „Brend – ime“, „Brend: ime“ u ćeliji ili spojenom redu.
+ */
+export function extractBrendDashBrand(cells: string[]): string | null {
+  for (const cell of cells) {
+    const t = cell.trim();
+    if (!/brend\s*[-–—:]/i.test(t)) continue;
+    const m = t.match(/^\s*brend\s*[-–—:]\s*(.+)\s*$/i);
+    if (m?.[1]) {
+      const cleaned = cleanBrandName(m[1]);
+      if (cleaned) return cleaned;
+    }
+  }
+
+  const joined = cells
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .join(" ");
+  const m = joined.match(BREND_DASH_IN_TEXT);
+  if (m?.[1]) {
+    const cleaned = cleanBrandName(m[1]);
+    if (cleaned) return cleaned;
+  }
+
+  return null;
+}
+
+/** Samo ime brenda u redu (bez „Brend -“), npr. ljubičasti naslov WOERLE. */
+export function extractStandaloneBrandTitle(cells: string[]): string | null {
+  if (cells.some((c) => /brend\s*[-–—:]/i.test(c.trim()))) return null;
+  return isBrandRow(cells);
+}
+
+/**
+ * Red graničnik brenda — proizvodi ispod do sledećeg takvog reda.
+ * 1) „Brend - ime“  2) samo „ime brenda“
+ */
+export function detectBrandMarkerRow(
+  cells: string[],
+  sifra: string,
+  novaSifra: string,
+  name: string,
+  price: number | null,
+): string | null {
+  if (rowLooksLikeProductLine(sifra, novaSifra, name, price)) return null;
+  if (isPureColumnHeaderRow(cells)) return null;
+
+  const brendDash = extractBrendDashBrand(cells);
+  if (brendDash) return brendDash;
+
+  return extractStandaloneBrandTitle(cells);
+}
+
+/** Ćelije koje nisu cena/PDV/pakovanje — za ljubičasti naslov grupe. */
+function meaningfulBrandCells(cells: string[]): string[] {
+  return cells
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .filter((c) => !/din\s*\//i.test(c))
+    .filter((c) => !isPackColumn(c))
+    .filter((c) => !isPdvColumnRaw(c))
+    .filter((c) => !isLikelyPriceRaw(c));
+}
+
+/**
+ * Ljubičasti / naslovni red brenda (npr. WOERLE, FINE & DELI).
+ * PDV u poslednjoj koloni ne sme da spreči prepoznavanje.
+ */
+export function isBrandRow(cells: string[]): string | null {
   if (isHeaderRowCells(cells)) return null;
-  if (trimmed.some((c) => /din\s*\//i.test(c) || isLikelyPriceRaw(c))) return null;
 
-  const first = trimmed[0];
-  if (/^(šifra|sifra|artikal|artiakal)/i.test(first)) return null;
+  const meaningful = meaningfulBrandCells(cells);
+  if (meaningful.length === 0) return null;
 
-  // Spojene ćelije (npr. samo "AIA") — ne pod-brend sa razmakom ("AIA ZAMRZNUTO")
-  if (trimmed.length === 1) {
-    if (first.includes(" ")) return null;
+  const first = meaningful[0];
+  if (/^(šifra|sifra|artikal|artiakal|p\.?\s*c|pdv|tr\.pak)/i.test(first)) {
+    return null;
+  }
+
+  if (meaningful.length === 1) {
     if (first.length >= 2 && first.length < 80 && !/^\d+$/.test(first)) {
       return first;
     }
     return null;
   }
 
-  if (trimmed.every((c) => c.toUpperCase() === first.toUpperCase()) && first.length > 2) {
+  const unique = [...new Set(meaningful)];
+  if (unique.length === 1 && unique[0].length >= 2 && unique[0].length < 80) {
+    return unique[0];
+  }
+
+  if (
+    meaningful.every((c) => c.toUpperCase() === first.toUpperCase()) &&
+    first.length > 2
+  ) {
     return first;
   }
 
   return null;
 }
 
+/** Pod-brend ispod glavnog (npr. AIA ZAMRZNUTO), samo kad već postoji brend iz ljubičastog reda. */
 export function isSubBrandRow(
   sifra: string,
   novaSifra: string,
   name: string,
   priceRaw: string,
+  currentBrand: string | null,
 ): string | null {
+  if (!currentBrand?.trim()) return null;
   if (parsePriceHint(priceRaw) != null) return null;
   if (sifra.trim() && /^\d+$/.test(sifra.trim())) return null;
   if (novaSifra.trim() && /^\d+$/.test(novaSifra.trim())) return null;
   const label = name.trim();
   if (label.length < 2) return null;
   if (/^(šifra|sifra|artikal|p\.?c|pdv|tr\.pak)/i.test(label)) return null;
+  if (label.toUpperCase() === currentBrand.trim().toUpperCase()) return null;
   return label;
 }
 

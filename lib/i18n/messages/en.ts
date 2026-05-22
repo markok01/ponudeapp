@@ -64,6 +64,8 @@ export const messagesEn: Messages = {
     rememberMe: "Stay signed in on this device",
     signIn: "Sign in",
     signInSuccess: "Signed in successfully",
+    sessionNotActive:
+      "Sign-in was accepted, but the session is not active. Check the database (user_sessions) or sign out and try again.",
     signInFailed: "Sign in failed",
     sessionRevoked: "Session ended. Please sign in again.",
     deviceLimit:
@@ -238,6 +240,7 @@ export const messagesEn: Messages = {
     created: "Quote created",
     saveChanges: "Save changes",
     createQuote: "Create quote",
+    workspaceTabs: "Catalog and quote lines",
     catalogTitle: "Price list",
     catalogEmpty: "Change search or import a price list.",
     linesTitle: "Quote lines",

@@ -47,7 +47,9 @@ export async function withAdminApi(
   options?: { sensitive?: boolean },
 ): Promise<NextResponse> {
   const meta = getRequestSecurityMeta(request);
-  const session = await getSessionUser();
+  const session = await getSessionUser(
+    request.cookies.get(SESSION_COOKIE)?.value,
+  );
 
   if (!session || session.role !== "admin") {
     await writeSecurityAuditLog({

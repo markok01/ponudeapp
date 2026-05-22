@@ -196,6 +196,67 @@ body {
   padding: 0 0 0.5rem;
 }
 
+/* Cenovnik — container + resize; fluid/typography u JS (catalog-table-layout) */
+.catalog-scroll-wrap {
+  container-type: inline-size;
+  container-name: catalog-panel;
+}
+
+.catalog-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.catalog-scroll-wrap[data-catalog-fluid="true"] .catalog-table {
+  min-width: 0 !important;
+}
+
+.catalog-scroll-wrap[data-catalog-fluid="true"] .scroll-hint-label {
+  display: block !important;
+}
+
+.catalog-scroll-wrap > div:last-child {
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .catalog-table-products col.catalog-col-brand-col,
+  .catalog-table-products .catalog-col-brand {
+    width: 0 !important;
+    max-width: 0;
+    padding: 0;
+    border-width: 0;
+    overflow: hidden;
+  }
+
+  .catalog-table-products .catalog-col-brand {
+    display: none;
+  }
+}
+
+.catalog-cell-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-col-resize-handle {
+  transition: background-color 0.12s ease;
+}
+
+.catalog-col-resize-handle:hover {
+  background: color-mix(in oklab, var(--primary) 22%, transparent);
+}
+
+.catalog-col-resize-handle:active {
+  background: color-mix(in oklab, var(--primary) 38%, transparent);
+}
+
+.catalog-row-resize-handle {
+  transition: opacity 0.12s ease;
+}
+
 @media (min-width: 768px) {
   .scroll-hint-label {
     display: none;
@@ -239,43 +300,6 @@ body {
     white-space: nowrap;
     font-size: 0.625rem;
     padding-right: 0.25rem;
-  }
-
-  .catalog-table .catalog-col-sku {
-    width: 17%;
-  }
-
-  .catalog-table .catalog-col-name {
-    width: 36%;
-  }
-
-  .catalog-table .catalog-col-price {
-    width: 28%;
-  }
-
-  .catalog-table .catalog-col-pdv {
-    width: 12%;
-  }
-
-  /* Proizvodi: brend kolona sakrivena na mobilnom */
-  .catalog-table-products .catalog-col-sku {
-    width: 14%;
-  }
-
-  .catalog-table-products .catalog-col-name {
-    width: 34%;
-  }
-
-  .catalog-table-products .catalog-col-price {
-    width: 26%;
-  }
-
-  .catalog-table-products .catalog-col-pdv {
-    width: 12%;
-  }
-
-  .catalog-table-products .catalog-col-actions {
-    width: 10%;
   }
 
   .catalog-table input {
@@ -375,9 +399,47 @@ body {
 }
 
 .quote-workspace-panels {
+  position: relative;
   min-height: 0;
   flex: 1;
   overflow: hidden;
+}
+
+/* Live panel resize — premium: GPU hint, bez transition tokom drag-a. */
+.quote-workspace-panels[data-panel-resizing] .quote-panel[data-catalog-panel] {
+  will-change: flex-basis;
+  transition: none !important;
+}
+
+.quote-workspace-panels[data-panel-resizing] .quote-panel[data-quote-panel] {
+  will-change: width;
+  transition: none !important;
+}
+
+.quote-workspace-panels[data-panel-resizing] .catalog-scroll-area,
+.quote-workspace-panels[data-panel-resizing] .quote-lines-scroll {
+  contain: layout style paint;
+  will-change: width;
+}
+
+.quote-workspace-panels[data-panel-resizing] .catalog-table tbody tr,
+.quote-workspace-panels[data-panel-resizing] .quote-lines-table tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2rem;
+}
+
+.quote-workspace-panels[data-panel-resizing] .catalog-table,
+.quote-workspace-panels[data-panel-resizing] .quote-lines-table {
+  pointer-events: none;
+}
+
+body.quote-panel-drag-active {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.quote-panel-drag-active * {
+  cursor: col-resize !important;
 }
 
 .quote-workspace .quote-panel {
@@ -412,11 +474,16 @@ body {
 .quote-workspace .catalog-scroll-area,
 .quote-workspace .quote-lines-scroll {
   min-height: 0;
+  min-width: 0;
   flex: 1;
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.quote-workspace .quote-lines-table {
+  max-width: 100%;
 }
 
 .quote-workspace .catalog-cell-name {
@@ -435,8 +502,167 @@ body {
   flex-shrink: 0;
 }
 
+.quote-lines-cards-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tablet/telefon: jedan panel (tab), bez resize kolona */
+@media (max-width: 1023px) {
+  .quote-workspace-panels--tabs {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .quote-workspace-panels--tabs .quote-panel {
+    min-height: 0;
+  }
+
+  .catalog-col-resize-handle {
+    display: none !important;
+    pointer-events: none;
+  }
+
+  .quote-workspace-meta {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .quote-discount-field {
+    min-height: 2.25rem;
+  }
+
+  .quote-workspace-mobile-tabs button {
+    min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .quote-workspace {
+    gap: 0.375rem;
+  }
+}
+
 .quote-panel-split {
   flex-shrink: 0;
+  touch-action: none;
+}
+
+/* iOS-style pun naziv proizvoda na hover */
+.product-name-tooltip {
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--popover) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow:
+    0 4px 6px rgba(44, 51, 69, 0.06),
+    0 16px 40px rgba(44, 51, 69, 0.12);
+}
+
+.dark .product-name-tooltip {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    0 20px 48px rgba(0, 0, 0, 0.45);
+}
+
+.product-name-tooltip__text {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--popover-foreground);
+  word-break: break-word;
+}
+
+/* Rabat u stavkama ponude — kompaktan iOS pill */
+.quote-discount-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.0625rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: 0 0.4375rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background: color-mix(in srgb, var(--card) 90%, var(--muted) 10%);
+  box-shadow:
+    0 1px 2px rgba(44, 51, 69, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.quote-discount-field:focus-within {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  background: var(--card);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent),
+    0 1px 3px rgba(44, 51, 69, 0.08);
+}
+
+.dark .quote-discount-field {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.dark .quote-discount-field:focus-within {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent),
+    0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.quote-discount-field--invalid {
+  border-color: color-mix(in srgb, var(--destructive) 55%, var(--border));
+}
+
+.quote-discount-field--invalid:focus-within {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--destructive) 18%, transparent),
+    0 1px 3px rgba(44, 51, 69, 0.08);
+}
+
+.quote-discount-field__input {
+  flex: 1 1 auto;
+  min-width: 1.25rem;
+  max-width: 3.25rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  outline: none;
+  line-height: 1.2;
+}
+
+.quote-discount-field__input::placeholder {
+  color: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+  font-weight: 500;
+}
+
+.quote-discount-field__suffix {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--muted-foreground) 88%, var(--foreground));
+  user-select: none;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .glass-navbar {

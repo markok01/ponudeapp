@@ -2,15 +2,23 @@
 
 import {
   createContext,
+  startTransition,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
-  cellFontSizePx,
-  cellPaddingYPx,
+  buildCellMetrics,
+  columnWidthsToStyles,
+  isFluidCatalogPanel,
+  responsiveFontPx,
+  sumColumnWidths,
+  type CellMetrics,
+} from "@/lib/catalog-table-layout";
+import {
   clamp,
   DEFAULT_QUOTE_WORKSPACE_LAYOUT,
   loadQuoteWorkspaceLayout,
@@ -18,20 +26,33 @@ import {
   QUOTE_LAYOUT_LIMITS,
   saveQuoteWorkspaceLayout,
   layoutToStyleVars,
+  shouldHideQuoteIncVatColumn,
+  sumQuoteColumnWidths,
   type CatalogColumnKey,
   type QuoteColumnKey,
   type QuoteWorkspaceLayout,
 } from "@/lib/quote-workspace-layout";
 
-type CellMetrics = {
-  fontPx: number;
-  paddingYPx: number;
-};
-
 type QuoteWorkspaceLayoutContextValue = {
   layout: QuoteWorkspaceLayout;
   styleVars: React.CSSProperties;
+  catalogPanelWidth: number;
+  quotePanelWidth: number;
+  isCatalogFluid: boolean;
+  isQuoteFluid: boolean;
+  catalogColStyles: Record<CatalogColumnKey, string>;
+  quoteColStyles: Record<QuoteColumnKey, string>;
+  catalogTableMinWidth: string | undefined;
+  quoteTableMinWidth: string | undefined;
+  hideQuoteIncVat: boolean;
+  isPanelResizing: boolean;
+  catalogHeaderFontPx: number;
+  quoteHeaderFontPx: number;
+  setCatalogPanelWidth: (w: number) => void;
+  setQuotePanelWidth: (w: number) => void;
   setCatalogPanelPct: (pct: number) => void;
+  setPanelResizing: (resizing: boolean) => void;
+  reportLivePanelWidths: (catalogPx: number, quotePx: number) => void;
   resizeCatalogPanelByDelta: (deltaPx: number, containerWidthPx: number) => void;
   resizeCatalogCol: (key: CatalogColumnKey, deltaPx: number) => void;
   resizeQuoteCol: (key: QuoteColumnKey, deltaPx: number) => void;
@@ -51,16 +72,52 @@ export function QuoteWorkspaceLayoutProvider({
 }) {
   const [layout, setLayout] = useState(DEFAULT_QUOTE_WORKSPACE_LAYOUT);
   const [ready, setReady] = useState(false);
+  const [catalogPanelWidth, setCatalogPanelWidth] = useState(0);
+  const [quotePanelWidth, setQuotePanelWidth] = useState(0);
+  const [isPanelResizing, setIsPanelResizing] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setLayout(loadQuoteWorkspaceLayout());
     setReady(true);
   }, []);
 
+  const persist = useCallback((next: QuoteWorkspaceLayout) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveQuoteWorkspaceLayout(next);
+      saveTimer.current = null;
+    }, 120);
+  }, []);
+
   useEffect(() => {
-    if (!ready) return;
-    saveQuoteWorkspaceLayout(layout);
-  }, [layout, ready]);
+    if (!ready || isPanelResizing) return;
+    persist(layout);
+  }, [layout, ready, persist, isPanelResizing]);
+
+  const setPanelResizing = useCallback((resizing: boolean) => {
+    setIsPanelResizing(resizing);
+  }, []);
+
+  const reportLivePanelWidths = useCallback((catalogPx: number, quotePx: number) => {
+    startTransition(() => {
+      setCatalogPanelWidth((prev) => (prev === catalogPx ? prev : catalogPx));
+      setQuotePanelWidth((prev) => (prev === quotePx ? prev : quotePx));
+    });
+  }, []);
+
+  const setCatalogPanelWidthTracked = useCallback((w: number) => {
+    if (isPanelResizing) return;
+    setCatalogPanelWidth(w);
+  }, [isPanelResizing]);
+
+  const setQuotePanelWidthTracked = useCallback((w: number) => {
+    if (isPanelResizing) return;
+    setQuotePanelWidth(w);
+  }, [isPanelResizing]);
+
+  const layoutCatalogWidth = catalogPanelWidth;
+  const layoutQuoteWidth = quotePanelWidth;
 
   const patch = useCallback((partial: Partial<QuoteWorkspaceLayout>) => {
     setLayout((prev) => mergeQuoteWorkspaceLayout({ ...prev, ...partial }));
@@ -131,40 +188,101 @@ export function QuoteWorkspaceLayoutProvider({
     setLayout(DEFAULT_QUOTE_WORKSPACE_LAYOUT);
   }, []);
 
+  const isCatalogFluid =
+    isPanelResizing || isFluidCatalogPanel(layoutCatalogWidth);
+  const isQuoteFluid = isPanelResizing || isFluidCatalogPanel(layoutQuoteWidth);
+
+  const hideQuoteIncVat = useMemo(
+    () => shouldHideQuoteIncVatColumn(layoutQuoteWidth, layout.quoteCols),
+    [layoutQuoteWidth, layout.quoteCols],
+  );
+
+  const quoteColExclude: QuoteColumnKey[] = hideQuoteIncVat ? ["incVat"] : [];
+
+  const catalogColStyles = useMemo(
+    () => columnWidthsToStyles(layout.catalogCols, layoutCatalogWidth),
+    [layout.catalogCols, layoutCatalogWidth],
+  );
+
+  const quoteColStyles = useMemo(
+    () =>
+      columnWidthsToStyles(layout.quoteCols, layoutQuoteWidth, {
+        exclude: quoteColExclude,
+      }),
+    [layout.quoteCols, layoutQuoteWidth, quoteColExclude],
+  );
+
+  const catalogTableMinWidth = useMemo(() => {
+    if (isCatalogFluid) return undefined;
+    return `${sumColumnWidths(layout.catalogCols)}px`;
+  }, [isCatalogFluid, layout.catalogCols]);
+
+  const quoteTableMinWidth = useMemo(() => {
+    if (isQuoteFluid) return undefined;
+    return `${sumQuoteColumnWidths(layout.quoteCols, quoteColExclude)}px`;
+  }, [isQuoteFluid, layout.quoteCols, quoteColExclude]);
+
+  const catalogHeaderFontPx = responsiveFontPx(layoutCatalogWidth, "header");
+  const quoteHeaderFontPx = responsiveFontPx(layoutQuoteWidth, "header");
+
   const catalogCellMetrics = useCallback(
-    (key: CatalogColumnKey): CellMetrics => {
-      const w = layout.catalogCols[key];
-      const kind = key === "name" ? "name" : "compact";
-      const fontPx = cellFontSizePx(w, layout.rowHeightPx, kind);
-      return { fontPx, paddingYPx: cellPaddingYPx(layout.rowHeightPx, fontPx) };
-    },
-    [layout],
+    (key: CatalogColumnKey): CellMetrics =>
+      buildCellMetrics(
+        layout.catalogCols[key],
+        layout.rowHeightPx,
+        layoutCatalogWidth,
+        key === "name" ? "name" : "compact",
+      ),
+    [layout.catalogCols, layout.rowHeightPx, layoutCatalogWidth],
   );
 
   const quoteCellMetrics = useCallback(
     (key: QuoteColumnKey): CellMetrics => {
       if (key === "actions") {
-        return {
-          fontPx: cellFontSizePx(36, layout.rowHeightPx),
-          paddingYPx: cellPaddingYPx(
-            layout.rowHeightPx,
-            cellFontSizePx(36, layout.rowHeightPx),
-          ),
-        };
+        return buildCellMetrics(
+          layout.quoteCols.actions,
+          layout.rowHeightPx,
+          layoutQuoteWidth,
+          "compact",
+        );
       }
-      const w = layout.quoteCols[key];
-      const kind = key === "name" ? "name" : "compact";
-      const fontPx = cellFontSizePx(w, layout.rowHeightPx, kind);
-      return { fontPx, paddingYPx: cellPaddingYPx(layout.rowHeightPx, fontPx) };
+      return buildCellMetrics(
+        layout.quoteCols[key],
+        layout.rowHeightPx,
+        layoutQuoteWidth,
+        key === "name" ? "name" : "compact",
+      );
     },
-    [layout],
+    [layout.quoteCols, layout.rowHeightPx, layoutQuoteWidth],
+  );
+
+  const styleVars = useMemo(
+    () =>
+      layoutToStyleVars(layout, layoutCatalogWidth, layoutQuoteWidth) as React.CSSProperties,
+    [layout, layoutCatalogWidth, layoutQuoteWidth],
   );
 
   const value = useMemo(
     () => ({
       layout,
-      styleVars: layoutToStyleVars(layout),
+      styleVars,
+      catalogPanelWidth,
+      quotePanelWidth,
+      isCatalogFluid,
+      isQuoteFluid,
+      hideQuoteIncVat,
+      catalogColStyles,
+      quoteColStyles,
+      catalogTableMinWidth,
+      quoteTableMinWidth,
+      isPanelResizing,
+      catalogHeaderFontPx,
+      quoteHeaderFontPx,
+      setCatalogPanelWidth: setCatalogPanelWidthTracked,
+      setQuotePanelWidth: setQuotePanelWidthTracked,
       setCatalogPanelPct,
+      setPanelResizing,
+      reportLivePanelWidths,
       resizeCatalogPanelByDelta,
       resizeCatalogCol,
       resizeQuoteCol,
@@ -175,7 +293,24 @@ export function QuoteWorkspaceLayoutProvider({
     }),
     [
       layout,
+      styleVars,
+      catalogPanelWidth,
+      quotePanelWidth,
+      isCatalogFluid,
+      isQuoteFluid,
+      catalogColStyles,
+      quoteColStyles,
+      catalogTableMinWidth,
+      quoteTableMinWidth,
+      hideQuoteIncVat,
+      isPanelResizing,
+      catalogHeaderFontPx,
+      quoteHeaderFontPx,
+      setCatalogPanelWidthTracked,
+      setQuotePanelWidthTracked,
       setCatalogPanelPct,
+      setPanelResizing,
+      reportLivePanelWidths,
       resizeCatalogPanelByDelta,
       resizeCatalogCol,
       resizeQuoteCol,

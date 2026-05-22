@@ -1,12 +1,21 @@
 import ExcelJS from "exceljs";
 import type { PriceListImportResult, PriceListRow } from "@/types/price-list";
 import {
+  catalogHeaderRowValues,
+  catalogRowToExcelValues,
+  logCatalogImportDebug,
+  validateCatalogImportRow,
+  type CatalogImportWarning,
+} from "@/utils/catalog-excel";
+import {
   buildHeaderMap,
+  detectBrandMarkerRow,
   HORECA_COMPACT_COLS,
+  isPureColumnHeaderRow,
   HORECA_WIDE_COLS,
-  isBrandRow,
   isHeaderRowCells,
   isLikelyPriceRaw,
+  rowLooksLikeProductLine,
   isPackColumn,
   isPdvColumnRaw,
   isPdvValueAsPrice,
@@ -18,38 +27,34 @@ import {
   sanitizePriceListRow,
   type ColumnKind,
 } from "@/utils/price-list-columns";
+import { detectHorecaBrandFromExcelRow, excelCellText } from "@/utils/horeca-excel-brand-detect";
+import {
+  classifyHorecaRow,
+  detectLayoutFromHeader,
+  extractBrandLabel,
+} from "@/utils/horeca-row-classify";
+import type { HorecaLayout } from "@/utils/horeca-excel-styles";
 
 export function parsePrice(value: string): number | null {
   return parsePriceHint(value);
 }
 
 function cellValue(cell: ExcelJS.Cell): string {
-  const v = cell.value;
-  if (v != null && typeof v === "object" && "richText" in v) {
-    const rich = v as { richText: { text: string }[] };
-    const fromRich = rich.richText.map((t) => t.text).join("").trim();
-    if (fromRich) return fromRich;
-  }
-
-  const text = cell.text?.trim();
-  if (text && text !== "[object Object]") return text;
-
-  if (v == null) return "";
-  if (typeof v === "number") return String(v);
-  if (typeof v === "string") return v.trim();
-  if (typeof v === "object" && "result" in v) {
-    const r = (v as { result?: unknown }).result;
-    if (r != null) return String(r).trim();
-  }
-  if (typeof v === "object" && "text" in v) {
-    return String((v as { text: string }).text ?? "").trim();
-  }
-  return "";
+  return excelCellText(cell);
 }
 
 function getCell(row: ExcelJS.Row, col?: number): string {
   if (!col) return "";
   return cellValue(row.getCell(col));
+}
+
+/** Vrednosti po indeksu kolone (0 = kolona A) za ispravno mapiranje headera. */
+function readRowCells(row: ExcelJS.Row, maxCol = 12): string[] {
+  const cells: string[] = Array.from({ length: maxCol }, () => "");
+  row.eachCell({ includeEmpty: true }, (cell, col) => {
+    if (col >= 1 && col <= maxCol) cells[col - 1] = cellValue(cell);
+  });
+  return cells;
 }
 
 function rowFromParts(
@@ -217,8 +222,9 @@ function adjustColsForImplicitNova(
 }
 
 function colsFromHeader(cells: string[]): Partial<Record<ColumnKind, number>> | null {
-  if (!isHeaderRowCells(cells)) return null;
-  const mapped = adjustColsForImplicitNova(buildHeaderMap(cells), cells);
+  const nonEmpty = cells.filter((c) => c != null && c.trim() !== "");
+  if (!isHeaderRowCells(nonEmpty)) return null;
+  const mapped = adjustColsForImplicitNova(buildHeaderMap(cells), nonEmpty);
   if (!mapped.name || !mapped.price) return null;
 
   const pdv =
@@ -227,8 +233,9 @@ function colsFromHeader(cells: string[]): Partial<Record<ColumnKind, number>> | 
 
   return {
     sku: mapped.sku ?? 1,
-    novaSifra: mapped.novaSifra ?? 2,
+    novaSifra: mapped.novaSifra,
     name: mapped.name,
+    category: mapped.category,
     price: mapped.price,
     pdv,
   };
@@ -258,15 +265,32 @@ function detectLayoutHeuristic(sheet: ExcelJS.Worksheet): Partial<Record<ColumnK
 }
 
 function findSheetColumns(sheet: ExcelJS.Worksheet): Partial<Record<ColumnKind, number>> {
-  for (let rowNum = 1; rowNum <= sheet.rowCount; rowNum++) {
-    const cells: string[] = [];
-    sheet.getRow(rowNum).eachCell({ includeEmpty: false }, (cell) => {
-      cells.push(cellValue(cell));
-    });
+  const headerScanLimit = Math.min(sheet.rowCount, 30);
+
+  for (let rowNum = 1; rowNum <= headerScanLimit; rowNum++) {
+    const cells = readRowCells(sheet.getRow(rowNum), 12);
     const fromHeader = colsFromHeader(cells);
     if (fromHeader) return fromHeader;
   }
   return detectLayoutHeuristic(sheet);
+}
+
+function sheetLooksLikeHoreca(sheet: ExcelJS.Worksheet): boolean {
+  const limit = Math.min(sheet.rowCount, 40);
+  for (let rowNum = 1; rowNum <= limit; rowNum++) {
+    const cells = readRowCells(sheet.getRow(rowNum), 12).filter(Boolean);
+    if (isPureColumnHeaderRow(cells)) return true;
+    const lower = cells.join(" ").toLowerCase();
+    if (lower.includes("horeca") && lower.includes("cenovnik")) return true;
+    if (
+      cells.some((c) => /šifra|sifra/i.test(c)) &&
+      cells.some((c) => /artikal/i.test(c)) &&
+      cells.some((c) => /pdv/i.test(c))
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function pickProductName(
@@ -281,6 +305,22 @@ function pickProductName(
   return v;
 }
 
+function excludedNameColumns(
+  cols: Partial<Record<ColumnKind, number>>,
+): Set<number> {
+  const skip = new Set<number>();
+  for (const col of [
+    cols.sku,
+    cols.novaSifra,
+    cols.category,
+    cols.price,
+    cols.pdv,
+  ]) {
+    if (col != null && col >= 1) skip.add(col);
+  }
+  return skip;
+}
+
 function resolveProductName(
   row: ExcelJS.Row,
   cols: Partial<Record<ColumnKind, number>>,
@@ -288,13 +328,20 @@ function resolveProductName(
   novaSifra: string,
 ): string {
   const nameCol = cols.name ?? 3;
+  const skip = excludedNameColumns(cols);
   const candidates = [
     nameCol,
     nameCol === 3 ? 4 : 3,
     3,
     4,
     cols.novaSifra === nameCol ? 3 : nameCol,
-  ].filter((c, i, arr) => c >= 2 && c <= 8 && arr.indexOf(c) === i);
+  ].filter(
+    (c, i, arr) =>
+      c >= 2 &&
+      c <= 8 &&
+      !skip.has(c) &&
+      arr.indexOf(c) === i,
+  );
 
   for (const col of candidates) {
     const picked = pickProductName(getCell(row, col), sku, novaSifra);
@@ -302,6 +349,31 @@ function resolveProductName(
   }
 
   return "";
+}
+
+type SheetParseState = {
+  brand: string | null;
+};
+
+function applyBrandMarker(state: SheetParseState, label: string | null | undefined): boolean {
+  const t = label?.trim();
+  if (!t || /^\d+$/.test(t)) return false;
+  if (t.length < 2 || t.length >= 80) return false;
+  state.brand = t;
+  return true;
+}
+
+function resolveCategory(
+  row: ExcelJS.Row,
+  cols: Partial<Record<ColumnKind, number>>,
+  state: SheetParseState,
+): string | null {
+  if (cols.category) {
+    const fromCell = getCell(row, cols.category).trim();
+    if (fromCell) return fromCell;
+  }
+
+  return state.brand?.trim() || null;
 }
 
 function resolvePriceAndPdv(
@@ -339,78 +411,119 @@ function resolvePriceAndPdv(
 function parseExcelSheet(
   sheet: ExcelJS.Worksheet,
   initialCols: Partial<Record<ColumnKind, number>>,
-  state: { brand: string | null; subBrand: string | null },
-): PriceListRow[] {
+  state: SheetParseState,
+): { rows: PriceListRow[]; warnings: CatalogImportWarning[] } {
   let cols = { ...initialCols };
   const skuCol = () => cols.sku ?? 1;
-  const novaCol = () => cols.novaSifra ?? 2;
+  const novaCol = () => cols.novaSifra;
 
   const rows: PriceListRow[] = [];
+  const warnings: CatalogImportWarning[] = [];
+  let sheetHeaderMapped = false;
+  const isHoreca = sheetLooksLikeHoreca(sheet);
+  let horecaLayout: HorecaLayout = cols.name === 4 ? "wide" : "compact";
 
   for (let rowNum = 1; rowNum <= sheet.rowCount; rowNum++) {
     const row = sheet.getRow(rowNum);
-    const cells: string[] = [];
-    row.eachCell({ includeEmpty: false }, (cell, col) => {
-      if (col <= 10) cells[col - 1] = cellValue(cell);
-    });
-    const cellList = cells.filter((c) => c != null && c !== "") as string[];
+    const cells = readRowCells(row, 12);
+    const cellList = cells.filter((c) => c.trim() !== "");
 
     if (cellList.length === 0) continue;
 
-    const headerCols = colsFromHeader(cellList);
-    if (headerCols) {
-      cols = headerCols;
+    if (isPureColumnHeaderRow(cellList)) {
+      if (!sheetHeaderMapped) {
+        const headerCols = colsFromHeader(cells);
+        if (headerCols) {
+          cols = headerCols;
+          sheetHeaderMapped = true;
+        }
+      }
+      if (isHoreca) {
+        horecaLayout = detectLayoutFromHeader(cellList);
+      }
       continue;
     }
 
     const sifra = getCell(row, skuCol());
-    const novaSifra = getCell(row, novaCol());
+    const novaColNum = novaCol();
+    const novaSifra = novaColNum ? getCell(row, novaColNum) : "";
     const { priceRaw, pdvRaw } = resolvePriceAndPdv(row, cols);
     const price = parsePrice(priceRaw);
     const pdv_percent = pdvRaw ? parsePdvPercent(pdvRaw) : 20;
     const name = resolveProductName(row, cols, sifra, novaSifra);
 
-    const subBrand = isSubBrandRow(sifra, novaSifra, name, priceRaw);
-    if (subBrand) {
-      state.subBrand = subBrand;
+    const styledBrand = detectHorecaBrandFromExcelRow(
+      row,
+      cellList,
+      sifra,
+      novaSifra,
+      name,
+      price,
+    );
+    if (applyBrandMarker(state, styledBrand)) {
       continue;
     }
 
-    const brand = isBrandRow(cellList);
-    if (brand) {
-      state.brand = brand;
-      state.subBrand = null;
+    if (isHoreca) {
+      const kind = classifyHorecaRow(cellList, horecaLayout);
+      if (kind === "brand" && applyBrandMarker(state, extractBrandLabel(cellList))) {
+        continue;
+      }
+    }
+
+    const subBrand = isSubBrandRow(sifra, novaSifra, name, priceRaw, state.brand);
+    if (applyBrandMarker(state, subBrand)) {
+      continue;
+    }
+
+    const brandMarker = detectBrandMarkerRow(
+      cellList,
+      sifra,
+      novaSifra,
+      name,
+      price,
+    );
+    if (applyBrandMarker(state, brandMarker)) {
       continue;
     }
 
     const sku = resolveSku(sifra, novaSifra);
+    if (!rowLooksLikeProductLine(sifra, novaSifra, name, price)) {
+      continue;
+    }
     if (!sku || !name || price == null) continue;
 
-    const categoryParts = [state.brand, state.subBrand].filter(Boolean);
+    const category = resolveCategory(row, cols, state);
     const product = sanitizePriceListRow({
       sku,
       name,
-      category: categoryParts.length ? categoryParts.join(" / ") : null,
+      category,
       price,
       pdv_percent,
     });
-    if (product) rows.push(product);
+    if (product) {
+      warnings.push(...validateCatalogImportRow(product));
+      rows.push(product);
+    }
   }
 
-  return rows;
+  return { rows, warnings };
 }
 
 export async function parseExcelBuffer(buffer: Buffer): Promise<PriceListRow[]> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
 
-  const state = { brand: null as string | null, subBrand: null as string | null };
   const ordered: PriceListRow[] = [];
   const skuToIndex = new Map<string, number>();
+  const allWarnings: CatalogImportWarning[] = [];
+
+  const state: SheetParseState = { brand: null };
 
   for (const sheet of workbook.worksheets) {
     const sheetCols = findSheetColumns(sheet);
-    const sheetRows = parseExcelSheet(sheet, sheetCols, state);
+    const { rows: sheetRows, warnings } = parseExcelSheet(sheet, sheetCols, state);
+    allWarnings.push(...warnings);
     for (const row of sheetRows) {
       const existing = skuToIndex.get(row.sku);
       if (existing !== undefined) {
@@ -422,22 +535,34 @@ export async function parseExcelBuffer(buffer: Buffer): Promise<PriceListRow[]> 
     }
   }
 
-  return ordered.map((row, index) => ({ ...row, sort_order: index }));
+  const withOrder = ordered.map((row, index) => ({ ...row, sort_order: index }));
+  logCatalogImportDebug("uvoz Excel", withOrder, allWarnings);
+  return withOrder;
 }
 
 export async function rowsToExcelBuffer(rows: PriceListRow[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Cenovnik");
-  sheet.addRow(["sku", "name", "category", "price"]);
+  sheet.addRow(catalogHeaderRowValues());
   for (const row of rows) {
-    sheet.addRow([row.sku, row.name, row.category ?? "", row.price]);
+    sheet.addRow(
+      catalogRowToExcelValues({
+        sku: row.sku,
+        name: row.name,
+        category: row.category,
+        price: row.price,
+        pdv_percent: row.pdv_percent,
+      }),
+    );
   }
   sheet.getRow(1).font = { bold: true };
   sheet.columns = [
-    { width: 18 },
-    { width: 48 },
-    { width: 22 },
     { width: 14 },
+    { width: 42 },
+    { width: 18 },
+    { width: 16 },
+    { width: 10 },
+    { width: 12 },
   ];
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

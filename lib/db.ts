@@ -44,6 +44,12 @@ async function ensureSchema(p: Pool): Promise<void> {
         `ALTER TABLE security_audit_log ADD COLUMN entry_hash CHAR(64) NULL AFTER prev_hash`,
         `ALTER TABLE security_audit_log ADD COLUMN suspicious_flag TINYINT(1) NOT NULL DEFAULT 0 AFTER entry_hash`,
       ];
+      try {
+        await p.query(`DELETE FROM user_sessions WHERE token_hash IS NULL`);
+      } catch {
+        /* user_sessions možda ne postoji još */
+      }
+
       for (const sql of columnMigrations) {
         try {
           await p.query(sql);
@@ -285,6 +291,8 @@ function buildPoolOptions(): PoolOptions {
     user,
     password,
     database,
+    /** Aiven/MySQL su u UTC — bez ovoga mysql2 čita DATETIME kao lokalno i admin idle odmah gasi sesiju. */
+    timezone: "Z",
     waitForConnections: true,
     connectionLimit,
     queueLimit: 0,

@@ -136,7 +136,13 @@ export function verifyAppPassword(password: string): boolean {
   }
 }
 
-export async function getSessionUser(): Promise<{
+/**
+ * @param sessionToken — iz `request.cookies` u Route Handlerima (pouzdano u Next 16).
+ *   Bez argumenta koristi `cookies()` (Server Components).
+ */
+export async function getSessionUser(
+  sessionToken?: string | null,
+): Promise<{
   id: number;
   email: string;
   name: string;
@@ -144,8 +150,11 @@ export async function getSessionUser(): Promise<{
 } | null> {
   if (!isAuthEnabled()) return null;
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  let token = sessionToken;
+  if (token === undefined) {
+    const cookieStore = await cookies();
+    token = cookieStore.get(SESSION_COOKIE)?.value;
+  }
   const payload = parseSessionToken(token);
   if (!payload) return null;
 
@@ -156,9 +165,20 @@ export async function getSessionUser(): Promise<{
   if (payload.userId > 0) {
     if (!payload.sid) return null;
     const resolved = await resolveUserSession(payload.sid, payload.userId);
-    if (!resolved) return null;
+    if (!resolved) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[auth] session not found in DB", {
+          userId: payload.userId,
+          sidPrefix: payload.sid.slice(0, 8),
+        });
+      }
+      return null;
+    }
 
-    if (user.role === "admin" && isAdminIdleExpired(resolved.lastActivityAt)) {
+    if (
+      user.role === "admin" &&
+      isAdminIdleExpired(resolved.lastActivityAt, resolved.sessionCreatedAt)
+    ) {
       await revokeUserSession(payload.sid);
       await writeSecurityAuditLog({
         requestId: "session-idle",

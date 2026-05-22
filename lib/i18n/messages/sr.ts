@@ -62,6 +62,8 @@ export const messagesSr = {
     rememberMe: "Ostani ulogovan na ovom uređaju",
     signIn: "Prijavi se",
     signInSuccess: "Uspešna prijava",
+    sessionNotActive:
+      "Prijava je primljena, ali sesija nije aktivna. Proverite bazu (user_sessions) ili se odjavite i pokušajte ponovo.",
     signInFailed: "Prijava nije uspela",
     sessionRevoked: "Sesija je prekinuta. Prijavite se ponovo.",
     deviceLimit:
@@ -236,6 +238,7 @@ export const messagesSr = {
     created: "Ponuda kreirana",
     saveChanges: "Sačuvaj izmene",
     createQuote: "Kreiraj ponudu",
+    workspaceTabs: "Cenovnik i stavke ponude",
     catalogTitle: "Cenovnik",
     catalogEmpty: "Promenite pretragu ili uvezite cenovnik.",
     linesTitle: "Stavke ponude",
