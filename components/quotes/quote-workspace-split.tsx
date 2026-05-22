@@ -48,7 +48,8 @@ export function QuoteWorkspaceSplit({
       <div
         ref={containerRef}
         className={cn(
-          "quote-workspace-panels relative flex min-h-0 flex-1 flex-col overflow-hidden sm:gap-0 lg:flex-row lg:gap-0",
+          "quote-workspace-panels relative flex min-h-0 flex-1 flex-col overflow-hidden sm:gap-0",
+          "lg:grid lg:grid-cols-[var(--catalog-panel-pct)_0.75rem_minmax(0,1fr)] lg:grid-rows-1 lg:items-stretch lg:gap-0",
           maxLg && "quote-workspace-panels--tabs gap-0",
         )}
         style={
@@ -60,7 +61,7 @@ export function QuoteWorkspaceSplit({
         <section
           data-catalog-panel
           className={cn(
-            "quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] lg:flex-[0_0_var(--catalog-panel-pct)] lg:rounded-r-none lg:border-r-0",
+            "quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] lg:min-w-0 lg:rounded-r-none lg:border-r-0",
             maxLg && mobileTab !== "catalog" && "hidden",
             maxLg && mobileTab === "catalog" && "min-h-0 flex-1",
           )}
@@ -88,7 +89,7 @@ export function QuoteWorkspaceSplit({
         <section
           data-quote-panel
           className={cn(
-            "quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] lg:rounded-l-none",
+            "quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] lg:min-w-0 lg:justify-self-stretch lg:rounded-l-none",
             maxLg && mobileTab !== "quote" && "hidden",
             maxLg && mobileTab === "quote" && "min-h-0 flex-1",
           )}

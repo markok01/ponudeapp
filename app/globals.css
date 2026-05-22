@@ -405,14 +405,43 @@ body {
   overflow: hidden;
 }
 
-/* Live panel resize — premium: GPU hint, bez transition tokom drag-a. */
+/*
+ * Desktop: grid — cenovnik levo (širina = %), split u sredini, stavke do desne ivice.
+ * Desna ivica stavki uvek na ivici kontejnera; menja se samo leva (granica sa cenovnikom).
+ */
+@media (min-width: 1024px) {
+  .quote-workspace-panels:not(.quote-workspace-panels--tabs) {
+    grid-template-columns: var(--catalog-panel-pct) 0.75rem minmax(0, 1fr);
+  }
+
+  .quote-workspace-panels:not(.quote-workspace-panels--tabs) [data-catalog-panel] {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .quote-workspace-panels:not(.quote-workspace-panels--tabs) .quote-panel-split {
+    grid-column: 2;
+  }
+
+  .quote-workspace-panels:not(.quote-workspace-panels--tabs) [data-quote-panel] {
+    grid-column: 3;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* Live panel resize — samo prva kolona grida se menja; treća (stavke) ostaje do desne ivice. */
+.quote-workspace-panels[data-panel-resizing] {
+  transition: none !important;
+}
+
 .quote-workspace-panels[data-panel-resizing] .quote-panel[data-catalog-panel] {
-  will-change: flex-basis;
+  will-change: auto;
   transition: none !important;
 }
 
 .quote-workspace-panels[data-panel-resizing] .quote-panel[data-quote-panel] {
-  will-change: width;
+  will-change: auto;
   transition: none !important;
 }
 
