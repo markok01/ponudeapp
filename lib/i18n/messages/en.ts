@@ -154,6 +154,14 @@ export const messagesEn: Messages = {
     other: "Other",
     mobileTableHint:
       "Swipe the table left/right. Drag a column header edge to resize.",
+    mobileTableHintCompact:
+      "Long-press a row for the full name. Tap adds to quote. Drag header edges to resize columns.",
+    mobileColumnsToolbar: "Catalog columns",
+    mobileColumnsLabel: "Show columns",
+    mobileFocusName: "Focus: name",
+    mobileResizeHint: "Drag the edge between columns in the header.",
+    mobilePeekLabel: "Product name",
+    mobilePeekDismiss: "Close preview",
   },
   products: {
     title: "Products",

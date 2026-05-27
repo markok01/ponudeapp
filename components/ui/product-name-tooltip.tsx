@@ -192,7 +192,7 @@ export function ProductNameTooltip({
 type TruncatedProductNameProps = {
   name: string;
   className?: string;
-  lines?: 1 | 2;
+  lines?: 1 | 2 | 3;
 };
 
 /** Skraćeni naziv u ćeliji + iOS tooltip kad je tekst isečen. */
@@ -208,7 +208,9 @@ export function TruncatedProductName({
           "block min-w-0 max-w-full",
           lines === 1
             ? "truncate whitespace-nowrap"
-            : "line-clamp-2 whitespace-normal break-words",
+            : lines === 3
+              ? "line-clamp-3 whitespace-normal break-words"
+              : "line-clamp-2 whitespace-normal break-words",
           className,
         )}
       >

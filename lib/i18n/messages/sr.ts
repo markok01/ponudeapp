@@ -152,6 +152,14 @@ export const messagesSr = {
     other: "Ostalo",
     mobileTableHint:
       "Prevucite tabelu ulevo/desno. Širinu kolone menjate prevlačenjem ivice zaglavlja.",
+    mobileTableHintCompact:
+      "Dugi pritisak na red prikazuje pun naziv. Klik dodaje u ponudu. Ivicu zaglavlja prevucite za širinu kolone.",
+    mobileColumnsToolbar: "Kolone cenovnika",
+    mobileColumnsLabel: "Prikaži kolone",
+    mobileFocusName: "Fokus: naziv",
+    mobileResizeHint: "Prevucite ivicu između kolona u zaglavlju (prst).",
+    mobilePeekLabel: "Naziv artikla",
+    mobilePeekDismiss: "Zatvori pregled",
   },
   products: {
     title: "Proizvodi",

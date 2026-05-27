@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Check, Plus } from "lucide-react";
 import { ResizableColumnHead } from "@/components/quotes/resizable-column-head";
+import { CatalogMobileToolbar } from "@/components/quotes/catalog-mobile-toolbar";
+import { CatalogMobileNamePeek } from "@/components/quotes/catalog-mobile-name-peek";
 import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
 import { useContainerWidth } from "@/hooks/use-container-width";
+import { useCatalogRowPeek } from "@/hooks/use-catalog-row-peek";
 import type { Product } from "@/types";
 import {
   formatPdvDisplay,
@@ -41,31 +44,54 @@ export function CatalogHorecaTable({
     isPanelResizing,
     catalogPanelWidth,
     setCatalogPanelWidth,
+    isCompactCatalog,
+    catalogVisibleKeys,
+    catalogMobileFocusName,
   } = useQuoteWorkspaceLayout();
   const { ref: panelRef, width: measuredWidth } = useContainerWidth<HTMLDivElement>({
     observe: !isPanelResizing,
   });
   const panelWidth = isPanelResizing ? catalogPanelWidth : measuredWidth;
   const groups = groupProductsByCategory(products, t("catalog.other"));
+  const [peekProduct, setPeekProduct] = useState<Product | null>(null);
+
+  const activeProduct =
+    products.find((p) => p.id === activeProductId) ?? null;
+  const peekDisplay = peekProduct ?? activeProduct;
 
   useEffect(() => {
     setCatalogPanelWidth(panelWidth);
   }, [panelWidth, setCatalogPanelWidth]);
+
+  useEffect(() => {
+    if (!activeProduct) return;
+    setPeekProduct((prev) =>
+      prev && prev.id === activeProduct.id ? prev : activeProduct,
+    );
+  }, [activeProduct]);
 
   if (!products.length) {
     return null;
   }
 
   const rowH = layout.rowHeightPx;
+  const colSpan = catalogVisibleKeys.length;
 
   return (
     <div
       ref={panelRef}
       className="catalog-scroll-wrap flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]"
       data-catalog-fluid={isCatalogFluid ? "true" : "false"}
+      data-catalog-focus-name={catalogMobileFocusName ? "true" : "false"}
+      data-catalog-compact={isCompactCatalog ? "true" : "false"}
     >
+      <CatalogMobileToolbar />
+      <CatalogMobileNamePeek
+        product={isCompactCatalog ? peekDisplay : null}
+        onDismiss={() => setPeekProduct(null)}
+      />
       <p className="scroll-hint-label shrink-0 px-2 pt-1 max-lg:block lg:hidden">
-        {t("catalog.mobileTableHint")}
+        {isCompactCatalog ? t("catalog.mobileTableHintCompact") : t("catalog.mobileTableHint")}
       </p>
       <div className="catalog-scroll-area min-h-0 flex-1 basis-0 overflow-auto overscroll-contain">
         <table
@@ -77,7 +103,7 @@ export function CatalogHorecaTable({
           }}
         >
           <colgroup>
-            {(Object.keys(layout.catalogCols) as CatalogColumnKey[]).map((key) => (
+            {catalogVisibleKeys.map((key) => (
               <col key={key} style={{ width: catalogColStyles[key] }} />
             ))}
           </colgroup>
@@ -90,8 +116,12 @@ export function CatalogHorecaTable({
                 inQuoteIds={inQuoteIds}
                 activeProductId={activeProductId}
                 onSelect={onSelect}
+                onPeek={setPeekProduct}
                 rowH={rowH}
+                colSpan={colSpan}
+                visibleKeys={catalogVisibleKeys}
                 onResizeCol={resizeCatalogCol}
+                focusName={catalogMobileFocusName}
               />
             ))}
           </tbody>
@@ -119,6 +149,10 @@ function CatalogDataCell({
     <td
       className={cn(
         "catalog-cell border border-border/40 align-top",
+        colKey === "name" && "catalog-cell-name",
+        colKey === "price" && "catalog-cell-price",
+        colKey === "pdv" && "catalog-cell-pdv",
+        colKey === "sku" && "catalog-cell-sku",
         align === "center" && "text-center",
         align === "right" && "text-right",
         className,
@@ -146,26 +180,44 @@ function GroupBlock({
   inQuoteIds,
   activeProductId,
   onSelect,
+  onPeek,
   rowH,
+  colSpan,
+  visibleKeys,
   onResizeCol,
+  focusName,
 }: {
   groupLabel: string;
   products: Product[];
   inQuoteIds: Set<number>;
   activeProductId: number | null;
   onSelect: (product: Product) => void;
+  onPeek: (product: Product | null) => void;
   rowH: number;
+  colSpan: number;
+  visibleKeys: CatalogColumnKey[];
   onResizeCol: (key: CatalogColumnKey, delta: number) => void;
+  focusName: boolean;
 }) {
   const t = useTranslations();
   const { catalogCellMetrics } = useQuoteWorkspaceLayout();
   const brandMetrics = catalogCellMetrics("name");
 
+  const headerMeta: Record<
+    CatalogColumnKey,
+    { align: "left" | "center" | "right"; label: string }
+  > = {
+    sku: { align: "center", label: t("catalog.sku") },
+    name: { align: "left", label: t("catalog.article") },
+    price: { align: "right", label: t("catalog.unitPrice") },
+    pdv: { align: "center", label: t("catalog.vat") },
+  };
+
   return (
     <>
       <tr className={HORECA_BRAND_BG}>
         <td
-          colSpan={4}
+          colSpan={colSpan}
           className="border border-border/40 px-2 text-center font-bold uppercase tracking-wide"
           style={{
             height: Math.max(24, rowH - 4),
@@ -178,77 +230,113 @@ function GroupBlock({
         </td>
       </tr>
       <tr className={HORECA_HEADER_BG}>
-        <ResizableColumnHead
-          variant="catalog"
-          align="center"
-          onResize={(d) => onResizeCol("sku", d)}
-        >
-          {t("catalog.sku")}
-        </ResizableColumnHead>
-        <ResizableColumnHead variant="catalog" onResize={(d) => onResizeCol("name", d)}>
-          {t("catalog.article")}
-        </ResizableColumnHead>
-        <ResizableColumnHead
-          variant="catalog"
-          align="right"
-          onResize={(d) => onResizeCol("price", d)}
-        >
-          {t("catalog.unitPrice")}
-        </ResizableColumnHead>
-        <ResizableColumnHead
-          variant="catalog"
-          align="center"
-          onResize={(d) => onResizeCol("pdv", d)}
-        >
-          {t("catalog.vat")}
-        </ResizableColumnHead>
-      </tr>
-      {products.map((product, index) => {
-        const inQuote = inQuoteIds.has(product.id);
-        const isActive = activeProductId === product.id;
-
-        return (
-          <tr
-            key={product.id}
-            className={cn(
-              "cursor-pointer transition-colors duration-100",
-              index % 2 === 0 ? "bg-card" : "bg-muted/30",
-              isActive && "bg-primary/15 ring-2 ring-inset ring-primary",
-              !isActive && inQuote && "bg-emerald-50/90 dark:bg-emerald-950/40",
-              !isActive &&
-                !inQuote &&
-                "hover:bg-primary/8 hover:ring-1 hover:ring-inset hover:ring-primary/40",
-            )}
-            style={{ height: rowH }}
-            onClick={() => onSelect(product)}
+        {visibleKeys.map((key) => (
+          <ResizableColumnHead
+            key={key}
+            variant="catalog"
+            align={headerMeta[key].align}
+            onResize={(d) => onResizeCol(key, d)}
           >
-            <CatalogDataCell colKey="sku" className="font-mono text-muted-foreground">
-              {product.sku}
-            </CatalogDataCell>
-            <CatalogDataCell colKey="name" className="font-medium">
-              <TruncatedProductName
-                name={product.name}
-                className="catalog-cell-name font-medium"
-              />
-            </CatalogDataCell>
-            <CatalogDataCell
-              colKey="price"
-              align="right"
-              className="catalog-cell-price font-mono tabular-nums text-price"
-            >
-              {formatPriceHoreca(product.price)}
-            </CatalogDataCell>
-            <CatalogDataCell
-              colKey="pdv"
-              align="center"
-              className="catalog-cell-pdv text-muted-foreground"
-            >
-              {formatPdvDisplay(product.pdv_percent)}
-            </CatalogDataCell>
-          </tr>
-        );
-      })}
+            {headerMeta[key].label}
+          </ResizableColumnHead>
+        ))}
+      </tr>
+      {products.map((product, index) => (
+        <CatalogProductRow
+          key={product.id}
+          product={product}
+          index={index}
+          inQuote={inQuoteIds.has(product.id)}
+          isActive={activeProductId === product.id}
+          visibleKeys={visibleKeys}
+          rowH={rowH}
+          focusName={focusName}
+          onSelect={onSelect}
+          onPeek={onPeek}
+        />
+      ))}
     </>
+  );
+}
+
+function CatalogProductRow({
+  product,
+  index,
+  inQuote,
+  isActive,
+  visibleKeys,
+  rowH,
+  focusName,
+  onSelect,
+  onPeek,
+}: {
+  product: Product;
+  index: number;
+  inQuote: boolean;
+  isActive: boolean;
+  visibleKeys: CatalogColumnKey[];
+  rowH: number;
+  focusName: boolean;
+  onSelect: (product: Product) => void;
+  onPeek: (product: Product | null) => void;
+}) {
+  const { onTouchStart, onTouchEnd, onTouchCancel, consumeLongPress } =
+    useCatalogRowPeek(() => onPeek(product));
+
+  return (
+    <tr
+      className={cn(
+        "cursor-pointer transition-colors duration-100",
+        index % 2 === 0 ? "bg-card" : "bg-muted/30",
+        isActive && "catalog-row-active bg-primary/15 ring-2 ring-inset ring-primary",
+        !isActive && inQuote && "bg-emerald-50/90 dark:bg-emerald-950/40",
+        !isActive &&
+          !inQuote &&
+          "hover:bg-primary/8 hover:ring-1 hover:ring-inset hover:ring-primary/40",
+        focusName && isActive && "catalog-row-focus-name",
+      )}
+      style={{ height: rowH }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
+      onClick={() => {
+        if (consumeLongPress()) return;
+        onSelect(product);
+      }}
+    >
+      {visibleKeys.includes("sku") ? (
+        <CatalogDataCell colKey="sku" className="font-mono text-muted-foreground">
+          {product.sku}
+        </CatalogDataCell>
+      ) : null}
+      {visibleKeys.includes("name") ? (
+        <CatalogDataCell colKey="name" className="font-medium">
+          <TruncatedProductName
+            name={product.name}
+            className="catalog-cell-name font-medium"
+            lines={focusName ? 3 : 2}
+          />
+        </CatalogDataCell>
+      ) : null}
+      {visibleKeys.includes("price") ? (
+        <CatalogDataCell
+          colKey="price"
+          align="right"
+          className="catalog-cell-price font-mono tabular-nums text-price"
+        >
+          {formatPriceHoreca(product.price)}
+        </CatalogDataCell>
+      ) : null}
+      {visibleKeys.includes("pdv") ? (
+        <CatalogDataCell
+          colKey="pdv"
+          align="center"
+          className="catalog-cell-pdv text-muted-foreground"
+        >
+          {formatPdvDisplay(product.pdv_percent)}
+        </CatalogDataCell>
+      ) : null}
+    </tr>
   );
 }
 

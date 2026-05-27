@@ -682,6 +682,52 @@ body.quote-panel-drag-active * {
     opacity: 1;
     background: color-mix(in oklab, var(--primary) 42%, transparent);
   }
+
+  .catalog-mobile-toolbar button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .catalog-mobile-peek-name {
+    animation: catalog-peek-name-in 0.35s ease-out;
+  }
+
+  @keyframes catalog-peek-name-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .catalog-scroll-wrap[data-catalog-focus-name="true"] .catalog-cell-name {
+    -webkit-line-clamp: 3;
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .catalog-scroll-wrap[data-catalog-compact="true"] .catalog-row-active {
+    animation: catalog-row-pulse 0.45s ease-out;
+  }
+
+  @keyframes catalog-row-pulse {
+    0% {
+      box-shadow: inset 0 0 0 0 color-mix(in oklab, var(--primary) 0%, transparent);
+    }
+    40% {
+      box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--primary) 55%, transparent);
+    }
+    100% {
+      box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--primary) 35%, transparent);
+    }
+  }
+
+  .catalog-scroll-wrap[data-catalog-compact="true"] .catalog-row-focus-name .catalog-cell-name {
+    font-weight: 600;
+    color: var(--foreground);
+  }
 }
 
 @media (max-width: 767px) {

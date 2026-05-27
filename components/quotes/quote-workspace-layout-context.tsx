@@ -18,11 +18,20 @@ import {
   sumColumnWidths,
   type CellMetrics,
 } from "@/lib/catalog-table-layout";
-import {
-  colsForFluidMobile,
-  QUOTE_CATALOG_MOBILE_FLUID_WEIGHTS,
-} from "@/lib/catalog-mobile-columns";
+import { quoteCatalogColsForCompact } from "@/lib/catalog-mobile-columns";
 import { useMaxMdViewport } from "@/hooks/use-max-md-viewport";
+import { useMaxLgViewport } from "@/hooks/use-max-lg-viewport";
+import {
+  loadQuoteCatalogMobilePrefs,
+  resolvedMobileHiddenCols,
+  saveQuoteCatalogMobilePrefs,
+  type CatalogMobileToggleKey,
+  type QuoteCatalogMobilePrefs,
+} from "@/lib/quote-catalog-mobile-prefs";
+import {
+  CATALOG_COLUMN_ORDER,
+  type CatalogColumnKey,
+} from "@/lib/quote-workspace-layout";
 import {
   clamp,
   DEFAULT_QUOTE_WORKSPACE_LAYOUT,
@@ -33,7 +42,6 @@ import {
   layoutToStyleVars,
   shouldHideQuoteIncVatColumn,
   sumQuoteColumnWidths,
-  type CatalogColumnKey,
   type QuoteColumnKey,
   type QuoteWorkspaceLayout,
 } from "@/lib/quote-workspace-layout";
@@ -65,6 +73,13 @@ type QuoteWorkspaceLayoutContextValue = {
   catalogCellMetrics: (key: CatalogColumnKey) => CellMetrics;
   quoteCellMetrics: (key: QuoteColumnKey) => CellMetrics;
   resetLayout: () => void;
+  isCompactCatalog: boolean;
+  catalogVisibleKeys: CatalogColumnKey[];
+  catalogHiddenKeys: CatalogColumnKey[];
+  catalogMobilePrefs: QuoteCatalogMobilePrefs;
+  catalogMobileFocusName: boolean;
+  toggleCatalogMobileColumn: (key: CatalogMobileToggleKey) => void;
+  setCatalogMobileFocusName: (on: boolean) => void;
 };
 
 const QuoteWorkspaceLayoutContext =
@@ -81,12 +96,61 @@ export function QuoteWorkspaceLayoutProvider({
   const [quotePanelWidth, setQuotePanelWidth] = useState(0);
   const [isPanelResizing, setIsPanelResizing] = useState(false);
   const isMobileViewport = useMaxMdViewport();
+  const isCompactCatalog = useMaxLgViewport();
+  const [catalogMobilePrefs, setCatalogMobilePrefs] = useState(
+    loadQuoteCatalogMobilePrefs,
+  );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobilePrefsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setLayout(loadQuoteWorkspaceLayout());
+    setCatalogMobilePrefs(loadQuoteCatalogMobilePrefs());
     setReady(true);
   }, []);
+
+  const persistMobilePrefs = useCallback((prefs: QuoteCatalogMobilePrefs) => {
+    if (mobilePrefsTimer.current) clearTimeout(mobilePrefsTimer.current);
+    mobilePrefsTimer.current = setTimeout(() => {
+      saveQuoteCatalogMobilePrefs(prefs);
+      mobilePrefsTimer.current = null;
+    }, 120);
+  }, []);
+
+  const catalogHiddenKeys = useMemo(
+    () => (isCompactCatalog ? resolvedMobileHiddenCols(catalogMobilePrefs) : []),
+    [isCompactCatalog, catalogMobilePrefs],
+  );
+
+  const catalogVisibleKeys = useMemo(
+    () => CATALOG_COLUMN_ORDER.filter((k) => !catalogHiddenKeys.includes(k)),
+    [catalogHiddenKeys],
+  );
+
+  const toggleCatalogMobileColumn = useCallback(
+    (key: CatalogMobileToggleKey) => {
+      setCatalogMobilePrefs((prev) => {
+        const hidden = new Set(prev.hidden);
+        if (hidden.has(key)) hidden.delete(key);
+        else hidden.add(key);
+        const next = { ...prev, hidden: [...hidden] };
+        persistMobilePrefs(next);
+        return next;
+      });
+    },
+    [persistMobilePrefs],
+  );
+
+  const setCatalogMobileFocusName = useCallback(
+    (on: boolean) => {
+      setCatalogMobilePrefs((prev) => {
+        const next = { ...prev, focusName: on };
+        persistMobilePrefs(next);
+        return next;
+      });
+    },
+    [persistMobilePrefs],
+  );
 
   const persist = useCallback((next: QuoteWorkspaceLayout) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -197,7 +261,8 @@ export function QuoteWorkspaceLayoutProvider({
   const isCatalogFluid =
     isPanelResizing ||
     isFluidCatalogPanel(layoutCatalogWidth) ||
-    isMobileViewport;
+    isMobileViewport ||
+    isCompactCatalog;
   const isQuoteFluid =
     isPanelResizing ||
     isFluidCatalogPanel(layoutQuoteWidth) ||
@@ -211,16 +276,16 @@ export function QuoteWorkspaceLayoutProvider({
   const quoteColExclude: QuoteColumnKey[] = hideQuoteIncVat ? ["incVat"] : [];
 
   const catalogColsForStyles = useMemo(() => {
-    if (!isMobileViewport) return layout.catalogCols;
-    return colsForFluidMobile(
-      isCatalogFluid ? layout.catalogCols : QUOTE_CATALOG_MOBILE_FLUID_WEIGHTS,
-      QUOTE_CATALOG_MOBILE_FLUID_WEIGHTS,
-    );
-  }, [layout.catalogCols, isMobileViewport, isCatalogFluid]);
+    if (!isCompactCatalog) return layout.catalogCols;
+    return quoteCatalogColsForCompact(layout.catalogCols, catalogHiddenKeys);
+  }, [layout.catalogCols, isCompactCatalog, catalogHiddenKeys]);
 
   const catalogColStyles = useMemo(
-    () => columnWidthsToStyles(catalogColsForStyles, layoutCatalogWidth),
-    [catalogColsForStyles, layoutCatalogWidth],
+    () =>
+      columnWidthsToStyles(catalogColsForStyles, layoutCatalogWidth, {
+        exclude: catalogHiddenKeys,
+      }),
+    [catalogColsForStyles, layoutCatalogWidth, catalogHiddenKeys],
   );
 
   const quoteColStyles = useMemo(
@@ -309,6 +374,13 @@ export function QuoteWorkspaceLayoutProvider({
       catalogCellMetrics,
       quoteCellMetrics,
       resetLayout,
+      isCompactCatalog,
+      catalogVisibleKeys,
+      catalogHiddenKeys,
+      catalogMobilePrefs,
+      catalogMobileFocusName: catalogMobilePrefs.focusName,
+      toggleCatalogMobileColumn,
+      setCatalogMobileFocusName,
     }),
     [
       layout,
@@ -337,6 +409,12 @@ export function QuoteWorkspaceLayoutProvider({
       catalogCellMetrics,
       quoteCellMetrics,
       resetLayout,
+      isCompactCatalog,
+      catalogVisibleKeys,
+      catalogHiddenKeys,
+      catalogMobilePrefs,
+      toggleCatalogMobileColumn,
+      setCatalogMobileFocusName,
     ],
   );
 

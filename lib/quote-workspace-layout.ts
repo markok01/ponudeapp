@@ -1,5 +1,12 @@
 export type CatalogColumnKey = "sku" | "name" | "price" | "pdv";
 
+export const CATALOG_COLUMN_ORDER: CatalogColumnKey[] = [
+  "sku",
+  "name",
+  "price",
+  "pdv",
+];
+
 export type QuoteColumnKey =
   | "sku"
   | "name"
