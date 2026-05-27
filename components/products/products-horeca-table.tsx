@@ -358,7 +358,7 @@ export function ProductsHorecaTable({
         onWidthChange={setContainerWidth}
         scrollHint={
           <p className="scroll-hint-label px-3 pt-2 max-lg:block lg:hidden">
-            {t("common.scrollHint")}
+            {t("catalog.mobileTableHint")}
           </p>
         }
       >

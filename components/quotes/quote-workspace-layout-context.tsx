@@ -19,6 +19,11 @@ import {
   type CellMetrics,
 } from "@/lib/catalog-table-layout";
 import {
+  colsForFluidMobile,
+  QUOTE_CATALOG_MOBILE_FLUID_WEIGHTS,
+} from "@/lib/catalog-mobile-columns";
+import { useMaxMdViewport } from "@/hooks/use-max-md-viewport";
+import {
   clamp,
   DEFAULT_QUOTE_WORKSPACE_LAYOUT,
   loadQuoteWorkspaceLayout,
@@ -75,6 +80,7 @@ export function QuoteWorkspaceLayoutProvider({
   const [catalogPanelWidth, setCatalogPanelWidth] = useState(0);
   const [quotePanelWidth, setQuotePanelWidth] = useState(0);
   const [isPanelResizing, setIsPanelResizing] = useState(false);
+  const isMobileViewport = useMaxMdViewport();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -189,8 +195,13 @@ export function QuoteWorkspaceLayoutProvider({
   }, []);
 
   const isCatalogFluid =
-    isPanelResizing || isFluidCatalogPanel(layoutCatalogWidth);
-  const isQuoteFluid = isPanelResizing || isFluidCatalogPanel(layoutQuoteWidth);
+    isPanelResizing ||
+    isFluidCatalogPanel(layoutCatalogWidth) ||
+    isMobileViewport;
+  const isQuoteFluid =
+    isPanelResizing ||
+    isFluidCatalogPanel(layoutQuoteWidth) ||
+    isMobileViewport;
 
   const hideQuoteIncVat = useMemo(
     () => shouldHideQuoteIncVatColumn(layoutQuoteWidth, layout.quoteCols),
@@ -199,9 +210,17 @@ export function QuoteWorkspaceLayoutProvider({
 
   const quoteColExclude: QuoteColumnKey[] = hideQuoteIncVat ? ["incVat"] : [];
 
+  const catalogColsForStyles = useMemo(() => {
+    if (!isMobileViewport || !isCatalogFluid) return layout.catalogCols;
+    return colsForFluidMobile(
+      layout.catalogCols,
+      QUOTE_CATALOG_MOBILE_FLUID_WEIGHTS,
+    );
+  }, [layout.catalogCols, isMobileViewport, isCatalogFluid]);
+
   const catalogColStyles = useMemo(
-    () => columnWidthsToStyles(layout.catalogCols, layoutCatalogWidth),
-    [layout.catalogCols, layoutCatalogWidth],
+    () => columnWidthsToStyles(catalogColsForStyles, layoutCatalogWidth),
+    [catalogColsForStyles, layoutCatalogWidth],
   );
 
   const quoteColStyles = useMemo(

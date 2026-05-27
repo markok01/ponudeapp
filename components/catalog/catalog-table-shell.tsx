@@ -21,7 +21,7 @@ export function CatalogTableShell({
   className,
   onWidthChange,
   scrollHint,
-  maxHeightClass = "max-h-[min(50vh,440px)] overflow-y-auto overscroll-y-contain sm:max-h-[min(58vh,520px)] lg:max-h-[min(68vh,640px)]",
+  maxHeightClass = "max-h-[min(calc(100dvh-12rem),560px)] overflow-x-auto overflow-y-auto overscroll-contain max-md:touch-pan-x sm:max-h-[min(58vh,520px)] lg:max-h-[min(68vh,640px)]",
   scrollBodyClass,
 }: CatalogTableShellProps) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();

@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 
 /** Tailwind `max-lg` — viewport &lt; 1024px. */
+function readMaxLg(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 1023px)").matches;
+}
+
 export function useMaxLgViewport(): boolean {
-  const [maxLg, setMaxLg] = useState(false);
+  const [maxLg, setMaxLg] = useState(readMaxLg);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");

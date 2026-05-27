@@ -15,6 +15,7 @@ import { QuoteWorkspaceLayoutProvider } from "@/components/quotes/quote-workspac
 import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
 import { QuoteWorkspaceSplit } from "@/components/quotes/quote-workspace-split";
 import type { QuoteWorkspaceMobileTab } from "@/components/quotes/quote-workspace-mobile-tabs";
+import { QuoteWorkspaceMeta } from "@/components/quotes/quote-workspace-meta";
 import { RowHeightHandle } from "@/components/quotes/row-height-handle";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -467,71 +468,23 @@ function QuoteBuilderWorkspace({
   const { styleVars } = useQuoteWorkspaceLayout();
   const [mobilePanel, setMobilePanel] = useState<QuoteWorkspaceMobileTab>("catalog");
 
-  const handleSelectProduct = useCallback(
-    (product: Product) => {
-      addProduct(product);
-      setMobilePanel("quote");
-    },
-    [addProduct],
-  );
-
   return (
     <div
       className="quote-workspace flex min-h-0 flex-1 flex-col gap-2 overflow-hidden sm:gap-2"
       style={styleVars as React.CSSProperties}
     >
-      <div className="quote-workspace-meta shrink-0 rounded-[var(--radius)] border border-border/80 bg-card px-3 py-3 shadow-[var(--shadow-soft)] sm:px-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto] lg:items-end lg:gap-4">
-          <div className="space-y-1.5 min-w-0">
-            <Label htmlFor="customer" className="text-xs">
-              {t("quotes.customerName")}
-            </Label>
-            <Input
-              id="customer"
-              list="customer-suggestions"
-              placeholder={t("quotes.customerPlaceholder")}
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="h-9"
-            />
-            <datalist id="customer-suggestions">
-              {customerSuggestions.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="valid-until" className="text-xs">
-              {t("quotes.validUntil")}
-            </Label>
-            <Input
-              id="valid-until"
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5 min-w-0">
-            <Label htmlFor="note" className="text-xs">
-              {t("quotes.notePdf")}
-            </Label>
-            <Input
-              id="note"
-              placeholder={t("quotes.notePlaceholder")}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="h-9"
-            />
-          </div>
-          <SaveQuoteButton
-            label={saveLabel}
-            onClick={saveQuote}
-            saving={saving}
-            className="hidden h-9 shrink-0 lg:inline-flex"
-          />
-        </div>
-      </div>
+      <QuoteWorkspaceMeta
+        customerName={customerName}
+        setCustomerName={setCustomerName}
+        customerSuggestions={customerSuggestions}
+        validUntil={validUntil}
+        setValidUntil={setValidUntil}
+        note={note}
+        setNote={setNote}
+        saveLabel={saveLabel}
+        saveQuote={saveQuote}
+        saving={saving}
+      />
 
       {invalidDiscount ? (
         <p className="shrink-0 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100 sm:text-sm">
@@ -544,19 +497,20 @@ function QuoteBuilderWorkspace({
         onMobileTabChange={setMobilePanel}
         quoteLineCount={lines.length}
         catalog={
-          <>
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 px-3 py-2 sm:px-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <BookOpen className="h-4 w-4 text-primary" />
-                {t("quotes.catalogTitle")}
-                <span className="text-[11px] font-normal tabular-nums text-muted-foreground">
+          <div className="quote-catalog-shell flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-2 py-1.5 sm:px-3 sm:py-2">
+              <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+                <BookOpen className="h-4 w-4 shrink-0 text-primary" />
+                <span className="truncate">{t("quotes.catalogTitle")}</span>
+                <span className="shrink-0 text-[10px] font-normal tabular-nums text-muted-foreground">
                   ({catalogTotal.toLocaleString()})
                 </span>
               </h3>
               <RowHeightHandle />
             </div>
-            <div className="shrink-0 space-y-2 border-b border-border/40 px-3 py-2">
+            <div className="shrink-0 border-b border-border/40 px-2 py-1.5 sm:px-3 sm:py-2">
               <CatalogFilters
+                compact
                 search={search}
                 onSearchChange={setSearch}
                 category={category}
@@ -565,7 +519,7 @@ function QuoteBuilderWorkspace({
                 resultCount={catalogTotal}
               />
             </div>
-            <div className="quote-catalog-body px-2 pb-2 pt-1 sm:px-2">
+            <div className="quote-catalog-body flex min-h-0 flex-1 flex-col px-1 pb-1 pt-0 sm:px-2 sm:pb-2 sm:pt-1">
               {loading && !allProducts.length ? (
                 <div className="flex flex-1 items-center justify-center text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -583,10 +537,10 @@ function QuoteBuilderWorkspace({
                       products={displayProducts}
                       inQuoteIds={inQuoteIds}
                       activeProductId={activeProductId}
-                      onSelect={handleSelectProduct}
+                      onSelect={addProduct}
                     />
                   </div>
-                  <div className="shrink-0 border-t border-border/50 pt-1.5">
+                  <div className="hidden shrink-0 border-t border-border/50 pt-1.5 lg:block">
                     <CatalogSelectionHint
                       activeProduct={activeProduct}
                       inQuoteCount={lines.length}
@@ -595,10 +549,10 @@ function QuoteBuilderWorkspace({
                 </>
               )}
             </div>
-          </>
+          </div>
         }
         quote={
-          <>
+          <div className="quote-quote-shell flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
               <h3 className="text-sm font-semibold">{t("quotes.linesTitle")}</h3>
               <div className="flex items-center gap-2">
@@ -666,7 +620,7 @@ function QuoteBuilderWorkspace({
                 </>
               )}
             </div>
-          </>
+          </div>
         }
       />
 

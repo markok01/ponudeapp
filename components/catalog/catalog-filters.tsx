@@ -20,6 +20,8 @@ interface CatalogFiltersProps {
   resultCount?: number;
   showInactive?: boolean;
   onShowInactiveChange?: (value: boolean) => void;
+  /** Manje paddinga na telefonu (nova ponuda). */
+  compact?: boolean;
 }
 
 export function CatalogFilters({
@@ -31,11 +33,18 @@ export function CatalogFilters({
   resultCount,
   showInactive,
   onShowInactiveChange,
+  compact = false,
 }: CatalogFiltersProps) {
   const t = useTranslations();
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <div
+      className={
+        compact
+          ? "flex flex-col gap-1.5"
+          : "flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+      }
+    >
       <div className="relative min-w-0 flex-1 sm:max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -43,12 +52,14 @@ export function CatalogFilters({
           placeholder={t("catalog.searchPlaceholder")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-10 pl-9"
+          className={compact ? "h-9 pl-9 text-base sm:text-sm" : "h-10 pl-9"}
         />
       </div>
       {categories.length > 0 ? (
         <Select value={category} onValueChange={onCategoryChange}>
-          <SelectTrigger className="h-10 w-full sm:w-[180px]">
+          <SelectTrigger
+            className={compact ? "h-9 w-full text-base sm:text-sm" : "h-10 w-full sm:w-[180px]"}
+          >
             <SelectValue placeholder={t("catalog.allBrands")} />
           </SelectTrigger>
           <SelectContent>
@@ -73,7 +84,13 @@ export function CatalogFilters({
         </label>
       ) : null}
       {resultCount !== undefined ? (
-        <span className="text-xs text-muted-foreground sm:ml-auto">
+        <span
+          className={
+            compact
+              ? "text-[10px] text-muted-foreground"
+              : "text-xs text-muted-foreground sm:ml-auto"
+          }
+        >
           {t("common.productsCount", { count: resultCount })}
         </span>
       ) : null}

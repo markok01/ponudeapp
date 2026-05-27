@@ -150,6 +150,8 @@ export const messagesSr = {
     lastPick: "Poslednji izbor: {sku}",
     inQuote: "{count} u ponudi",
     other: "Ostalo",
+    mobileTableHint:
+      "Prevucite tabelu ulevo/desno. Širinu kolone menjate prevlačenjem ivice zaglavlja.",
   },
   products: {
     title: "Proizvodi",
@@ -239,6 +241,7 @@ export const messagesSr = {
     saveChanges: "Sačuvaj izmene",
     createQuote: "Kreiraj ponudu",
     workspaceTabs: "Cenovnik i stavke ponude",
+    quoteDetails: "Detalji ponude",
     catalogTitle: "Cenovnik",
     catalogEmpty: "Promenite pretragu ili uvezite cenovnik.",
     linesTitle: "Stavke ponude",

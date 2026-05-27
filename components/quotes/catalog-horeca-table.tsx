@@ -64,10 +64,10 @@ export function CatalogHorecaTable({
       className="catalog-scroll-wrap flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]"
       data-catalog-fluid={isCatalogFluid ? "true" : "false"}
     >
-      <p className="scroll-hint-label shrink-0 px-2 pt-1.5 lg:hidden">
-        {t("common.scrollHint")}
+      <p className="scroll-hint-label shrink-0 px-2 pt-1 max-lg:block lg:hidden">
+        {t("catalog.mobileTableHint")}
       </p>
-      <div className="catalog-scroll-area min-h-0 flex-1 overflow-auto overscroll-contain">
+      <div className="catalog-scroll-area min-h-0 flex-1 basis-0 overflow-auto overscroll-contain">
         <table
           className="catalog-table w-full border-collapse text-sm"
           style={{
@@ -234,11 +234,15 @@ function GroupBlock({
             <CatalogDataCell
               colKey="price"
               align="right"
-              className="font-mono tabular-nums text-price"
+              className="catalog-cell-price font-mono tabular-nums text-price"
             >
               {formatPriceHoreca(product.price)}
             </CatalogDataCell>
-            <CatalogDataCell colKey="pdv" align="center" className="text-muted-foreground">
+            <CatalogDataCell
+              colKey="pdv"
+              align="center"
+              className="catalog-cell-pdv text-muted-foreground"
+            >
               {formatPdvDisplay(product.pdv_percent)}
             </CatalogDataCell>
           </tr>

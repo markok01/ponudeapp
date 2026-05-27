@@ -2,7 +2,6 @@
 
 import { useRef } from "react";
 import { useQuotePanelSplitDrag } from "@/hooks/use-quote-panel-split-drag";
-import { useMaxLgViewport } from "@/hooks/use-max-lg-viewport";
 import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
 import {
   QuoteWorkspaceMobileTabs,
@@ -26,7 +25,6 @@ export function QuoteWorkspaceSplit({
   quoteLineCount?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const maxLg = useMaxLgViewport();
   const { layout, setCatalogPanelPct, setPanelResizing, reportLivePanelWidths } =
     useQuoteWorkspaceLayout();
 
@@ -39,7 +37,12 @@ export function QuoteWorkspaceSplit({
   });
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col gap-2 overflow-hidden", className)}>
+    <div
+      className={cn(
+        "quote-workspace-split flex min-h-0 flex-1 flex-col gap-2 overflow-hidden max-lg:min-h-0 max-lg:basis-0",
+        className,
+      )}
+    >
       <QuoteWorkspaceMobileTabs
         active={mobileTab}
         onChange={onMobileTabChange}
@@ -47,10 +50,10 @@ export function QuoteWorkspaceSplit({
       />
       <div
         ref={containerRef}
+        data-mobile-tab={mobileTab}
         className={cn(
-          "quote-workspace-panels relative flex min-h-0 flex-1 flex-col overflow-hidden sm:gap-0",
+          "quote-workspace-panels quote-workspace-panels--tabs relative flex min-h-0 flex-1 flex-col overflow-hidden sm:gap-0",
           "lg:grid lg:grid-cols-[var(--catalog-panel-pct)_0.75rem_minmax(0,1fr)] lg:grid-rows-1 lg:items-stretch lg:gap-0",
-          maxLg && "quote-workspace-panels--tabs gap-0",
         )}
         style={
           {
@@ -60,13 +63,9 @@ export function QuoteWorkspaceSplit({
       >
         <section
           data-catalog-panel
-          className={cn(
-            "quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] lg:min-w-0 lg:rounded-r-none lg:border-r-0",
-            maxLg && mobileTab !== "catalog" && "hidden",
-            maxLg && mobileTab === "catalog" && "min-h-0 flex-1",
-          )}
+          className="quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] max-lg:min-h-0 max-lg:flex-1 max-lg:basis-0 lg:min-w-0 lg:rounded-r-none lg:border-r-0"
         >
-          <div className="flex h-full min-h-0 flex-col">{catalog}</div>
+          <div className="quote-panel-inner flex min-h-0 flex-1 flex-col">{catalog}</div>
         </section>
 
         <div
@@ -88,13 +87,9 @@ export function QuoteWorkspaceSplit({
 
         <section
           data-quote-panel
-          className={cn(
-            "quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] lg:min-w-0 lg:justify-self-stretch lg:rounded-l-none",
-            maxLg && mobileTab !== "quote" && "hidden",
-            maxLg && mobileTab === "quote" && "min-h-0 flex-1",
-          )}
+          className="quote-panel flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-[var(--shadow-soft)] max-lg:min-h-0 max-lg:flex-1 max-lg:basis-0 lg:min-w-0 lg:justify-self-stretch lg:rounded-l-none"
         >
-          <div className="flex h-full min-h-0 flex-col">{quote}</div>
+          <div className="quote-panel-inner flex min-h-0 flex-1 flex-col">{quote}</div>
         </section>
       </div>
     </div>

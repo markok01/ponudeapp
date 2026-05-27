@@ -28,6 +28,10 @@ import {
   type ProductsCatalogLayout,
 } from "@/lib/products-catalog-layout";
 import { useMaxMdViewport } from "@/hooks/use-max-md-viewport";
+import {
+  colsForFluidMobile,
+  PRODUCTS_MOBILE_FLUID_WEIGHTS,
+} from "@/lib/catalog-mobile-columns";
 
 const ALL_COLUMN_KEYS: ProductsCatalogColumnKey[] = [
   "sku",
@@ -112,16 +116,22 @@ export function ProductsCatalogLayoutProvider({
     [persist],
   );
 
-  const isFluid = isFluidCatalogPanel(containerWidth);
+  const isFluid =
+    isFluidCatalogPanel(containerWidth) || isMobileViewport;
+
+  const colsForStyles = useMemo(() => {
+    if (!isMobileViewport || !isFluid) return layout.cols;
+    return colsForFluidMobile(layout.cols, PRODUCTS_MOBILE_FLUID_WEIGHTS);
+  }, [layout.cols, isMobileViewport, isFluid]);
 
   const colStyles = useMemo(
     (): Record<ProductsCatalogColumnKey, string> =>
-      columnWidthsToStyles(layout.cols, containerWidth, {
+      columnWidthsToStyles(colsForStyles, containerWidth, {
         exclude: isMobileViewport
           ? (["brand"] as ProductsCatalogColumnKey[])
           : undefined,
       }),
-    [layout.cols, containerWidth, isMobileViewport],
+    [colsForStyles, containerWidth, isMobileViewport],
   );
 
   const tableMinWidth = useMemo(() => {

@@ -45,7 +45,9 @@ export function ResizableColumnHead({
         <span
           role="separator"
           aria-orientation="vertical"
-          className="catalog-col-resize-handle absolute right-0 top-0 z-10 h-full w-2 cursor-col-resize touch-none"
+          aria-label="Promeni širinu kolone"
+          title="Prevucite za širinu kolone"
+          className="catalog-col-resize-handle absolute right-0 top-0 z-20 h-full w-2 cursor-col-resize touch-none md:w-2"
           onPointerDown={onPointerDown}
         />
       ) : null}

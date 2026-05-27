@@ -298,8 +298,17 @@ body {
 
   .catalog-table .catalog-cell-price {
     white-space: nowrap;
-    font-size: 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
     padding-right: 0.25rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--price);
+  }
+
+  .catalog-table .catalog-cell-pdv {
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .catalog-table input {
@@ -396,6 +405,11 @@ body {
   flex: 1;
   flex-direction: column;
   overflow: hidden;
+}
+
+.quote-workspace > .quote-workspace-split {
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .quote-workspace-panels {
@@ -504,7 +518,7 @@ body.quote-panel-drag-active * {
 .quote-workspace .quote-lines-scroll {
   min-height: 0;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 0%;
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -539,25 +553,95 @@ body.quote-panel-drag-active * {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Tablet/telefon: jedan panel (tab), bez resize kolona */
+/* Tablet/telefon: jedan panel (tab), touch resize kolona */
 @media (max-width: 1023px) {
+  .dashboard-workspace .quote-workspace {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+
+  .quote-workspace-split {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+
   .quote-workspace-panels--tabs {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0%;
     min-height: 0;
-    flex: 1 1 auto;
+    position: relative;
   }
 
-  .quote-workspace-panels--tabs .quote-panel {
-    min-height: 0;
-  }
-
-  .catalog-col-resize-handle {
+  .quote-workspace-panels--tabs[data-mobile-tab="catalog"] [data-quote-panel] {
     display: none !important;
-    pointer-events: none;
+  }
+
+  .quote-workspace-panels--tabs[data-mobile-tab="quote"] [data-catalog-panel] {
+    display: none !important;
+  }
+
+  .quote-workspace-panels--tabs[data-mobile-tab="catalog"] [data-catalog-panel],
+  .quote-workspace-panels--tabs[data-mobile-tab="quote"] [data-quote-panel] {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .quote-workspace-panels--tabs[data-mobile-tab="quote"] [data-quote-panel] {
+    z-index: 2;
+  }
+
+  .quote-workspace-panels--tabs .quote-panel-inner,
+  .quote-workspace-panels--tabs .quote-catalog-shell,
+  .quote-workspace-panels--tabs .quote-quote-shell {
+    flex: 1 1 0%;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .quote-workspace-panels--tabs [data-catalog-panel] .quote-catalog-body,
+  .quote-workspace-panels--tabs [data-catalog-panel] .catalog-scroll-wrap {
+    flex: 1 1 0%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .quote-workspace-panels--tabs [data-catalog-panel] .catalog-scroll-area {
+    flex: 1 1 0%;
+    min-height: 0;
+    height: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .quote-workspace-panels--tabs [data-quote-panel] .quote-lines-body {
+    flex: 1 1 0%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .quote-workspace-panels--tabs .quote-lines-cards-scroll {
+    flex: 1 1 auto;
+    min-height: min(45dvh, calc(100dvh - 16rem));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-workspace .print-description {
+    display: none;
   }
 
   .quote-workspace-meta {
-    padding-top: 0.625rem;
-    padding-bottom: 0.625rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
   }
 
   .quote-discount-field {
@@ -566,6 +650,19 @@ body.quote-panel-drag-active * {
 
   .quote-workspace-mobile-tabs button {
     min-height: 2.75rem;
+  }
+
+  /* Veći touch target za resize kolona (prst) */
+  .catalog-col-resize-handle {
+    width: 14px;
+    right: -5px;
+    opacity: 0.45;
+    background: color-mix(in oklab, var(--primary) 18%, transparent);
+  }
+
+  .catalog-col-resize-handle:active {
+    opacity: 1;
+    background: color-mix(in oklab, var(--primary) 42%, transparent);
   }
 }
 

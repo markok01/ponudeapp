@@ -152,6 +152,8 @@ export const messagesEn: Messages = {
     lastPick: "Last selected: {sku}",
     inQuote: "{count} in quote",
     other: "Other",
+    mobileTableHint:
+      "Swipe the table left/right. Drag a column header edge to resize.",
   },
   products: {
     title: "Products",
@@ -241,6 +243,7 @@ export const messagesEn: Messages = {
     saveChanges: "Save changes",
     createQuote: "Create quote",
     workspaceTabs: "Catalog and quote lines",
+    quoteDetails: "Quote details",
     catalogTitle: "Price list",
     catalogEmpty: "Change search or import a price list.",
     linesTitle: "Quote lines",
