@@ -13,25 +13,34 @@ export async function GET(request: NextRequest) {
   }
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const user = await getSessionUser(token);
 
-  if (process.env.AUTH_DEBUG === "1") {
-    const payload = parseSessionToken(token);
+  try {
+    const user = await getSessionUser(token);
+
+    if (process.env.AUTH_DEBUG === "1") {
+      const payload = parseSessionToken(token);
+      return NextResponse.json({
+        authEnabled: true,
+        authenticated: Boolean(user),
+        user: user ?? null,
+        debug: {
+          hasToken: Boolean(token),
+          tokenLen: token?.length ?? 0,
+          payloadUserId: payload?.userId ?? null,
+        },
+      });
+    }
+
     return NextResponse.json({
       authEnabled: true,
       authenticated: Boolean(user),
       user: user ?? null,
-      debug: {
-        hasToken: Boolean(token),
-        tokenLen: token?.length ?? 0,
-        payloadUserId: payload?.userId ?? null,
-      },
     });
+  } catch (error) {
+    console.error("GET /api/auth/me", error);
+    return NextResponse.json(
+      { authEnabled: true, error: "session_check_unavailable" },
+      { status: 503 },
+    );
   }
-
-  return NextResponse.json({
-    authEnabled: true,
-    authenticated: Boolean(user),
-    user: user ?? null,
-  });
 }

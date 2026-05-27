@@ -44,7 +44,7 @@ export interface QuoteBuilderProps {
   duplicateFromId?: number;
 }
 
-const ALL_CATALOG_PAGE_SIZE = 50_000;
+const ALL_CATALOG_PAGE_SIZE = 5_000;
 
 function SaveQuoteButton({
   label,

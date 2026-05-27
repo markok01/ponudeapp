@@ -15,11 +15,13 @@ export function SessionGuard() {
 
     try {
       const res = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!res.ok) return;
+
       const data = (await res.json()) as {
         authEnabled?: boolean;
         authenticated?: boolean;
       };
-      if (data.authEnabled && !data.authenticated) {
+      if (data.authEnabled === true && data.authenticated === false) {
         await fetch("/api/auth/logout", { method: "POST" });
         router.replace("/login?reason=session_revoked");
         router.refresh();

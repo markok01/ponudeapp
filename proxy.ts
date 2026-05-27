@@ -21,14 +21,13 @@ function isPublicPath(pathname: string): boolean {
 }
 
 function denyAccess(request: NextRequest, pathname: string) {
-  const hadSessionCookie = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const hadSessionCookie = Boolean(token);
+  const jwtStillValid = Boolean(parseSessionToken(token));
 
   if (pathname.startsWith("/api/")) {
-    const res = NextResponse.json({ error: "Niste prijavljeni" }, { status: 401 });
-    if (hadSessionCookie) {
-      res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
-    }
-    return res;
+    // API 401 ne briše cookie — sprečava lažni logout pri privremenom DB opterećenju.
+    return NextResponse.json({ error: "Niste prijavljeni" }, { status: 401 });
   }
 
   const loginUrl = new URL("/login", request.nextUrl.origin);
@@ -38,7 +37,7 @@ function denyAccess(request: NextRequest, pathname: string) {
     hadSessionCookie ? "session_revoked" : "auth_required",
   );
   const res = NextResponse.redirect(loginUrl);
-  if (hadSessionCookie) {
+  if (hadSessionCookie && !jwtStillValid) {
     res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
   }
   return res;
@@ -77,9 +76,15 @@ async function sessionIsValid(request: NextRequest): Promise<boolean> {
 
   const data = await fetchAuthMe(request);
   if (data?.authenticated === true) return true;
-  if (data?.authenticated === false) return false;
 
-  // /api/auth/me nedostupan u proxy fetch-u — dozvoli samo ako JWT izgleda validno
+  if (data?.authenticated === false) {
+    // Retry — Nova ponuda paralelno učitava veliki cenovnik i može privremeno opteretiti bazu.
+    const retry = await fetchAuthMe(request);
+    if (retry?.authenticated === true) return true;
+    return false;
+  }
+
+  // /api/auth/me nedostupan u proxy fetch-u — dozvoli ako JWT izgleda validno
   return true;
 }
 
