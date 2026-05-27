@@ -26,6 +26,6 @@ export function isAdminIdleExpired(
     typeof lastActivityAt === "string"
       ? new Date(lastActivityAt).getTime()
       : lastActivityAt.getTime();
-  if (!Number.isFinite(at)) return true;
+  if (!Number.isFinite(at)) return false;
   return Date.now() - at > getAdminIdleTimeoutMs();
 }

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { parseSessionToken, SESSION_COOKIE } from "@/lib/auth";
 import {
   clearSessionCookieOptions,
   isAuthEnabled,
+  SESSION_COOKIE,
 } from "@/lib/auth-config";
+import { parseSessionToken } from "@/lib/session-token";
 
 const PUBLIC_PATHS = ["/login", "/manifest.webmanifest"];
 
@@ -26,7 +27,6 @@ function denyAccess(request: NextRequest, pathname: string) {
   const jwtStillValid = Boolean(parseSessionToken(token));
 
   if (pathname.startsWith("/api/")) {
-    // API 401 ne briše cookie — sprečava lažni logout pri privremenom DB opterećenju.
     return NextResponse.json({ error: "Niste prijavljeni" }, { status: 401 });
   }
 
@@ -48,7 +48,7 @@ type AuthMe = {
   user?: { role?: string } | null;
 };
 
-/** Provera sesije preko Node API rute (crypto + baza nisu dostupni u proxy). */
+/** Samo za /api/admin — provera uloge ide preko Node API rute. */
 async function fetchAuthMe(request: NextRequest): Promise<AuthMe | null> {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token || !parseSessionToken(token)) return null;
@@ -69,23 +69,10 @@ async function fetchAuthMe(request: NextRequest): Promise<AuthMe | null> {
   }
 }
 
-async function sessionIsValid(request: NextRequest): Promise<boolean> {
+/** JWT provera u proxy — bez internog fetch-a ka bazi (nestabilno na Vercelu). */
+function sessionIsValid(request: NextRequest): boolean {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const payload = parseSessionToken(token);
-  if (!payload) return false;
-
-  const data = await fetchAuthMe(request);
-  if (data?.authenticated === true) return true;
-
-  if (data?.authenticated === false) {
-    // Retry — Nova ponuda paralelno učitava veliki cenovnik i može privremeno opteretiti bazu.
-    const retry = await fetchAuthMe(request);
-    if (retry?.authenticated === true) return true;
-    return false;
-  }
-
-  // /api/auth/me nedostupan u proxy fetch-u — dozvoli ako JWT izgleda validno
-  return true;
+  return parseSessionToken(token) !== null;
 }
 
 export async function proxy(request: NextRequest) {
@@ -96,13 +83,13 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isPublicPath(pathname)) {
-    if (pathname === "/login" && (await sessionIsValid(request))) {
+    if (pathname === "/login" && sessionIsValid(request)) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }
 
-  if (!(await sessionIsValid(request))) {
+  if (!sessionIsValid(request)) {
     return denyAccess(request, pathname);
   }
 

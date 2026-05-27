@@ -124,7 +124,7 @@ export function QuoteBuilder({
       if (search.trim()) params.set("search", search.trim());
       if (category !== "all") params.set("category", category);
 
-      const res = await fetch(`/api/products?${params}`);
+      const res = await fetch(`/api/products?${params}`, { credentials: "include" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 

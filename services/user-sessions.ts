@@ -1,5 +1,6 @@
 import { execute, query, type RowDataPacket } from "@/lib/db";
 import type { SessionClientInfo } from "@/lib/session-client-info";
+import { getAdminIdleTimeoutMs } from "@/lib/security/admin-idle";
 import {
   atomicDeactivateUserSessions,
   atomicRevokeAllUserSessions,
@@ -65,6 +66,30 @@ export function getAdminCreateUserCooldownMs(): number {
   const raw = process.env.ADMIN_CREATE_USER_COOLDOWN_SEC?.trim();
   const sec = raw ? Number(raw) : 60;
   return (Number.isFinite(sec) && sec > 0 ? sec : 60) * 1000;
+}
+
+function toMysqlUtcDatetime(date: Date): string {
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+/** Admin idle provera u SQL-u — ne zavisi od JS timezone parsiranja. */
+export async function isAdminSessionIdleExpired(sessionRowId: string): Promise<boolean> {
+  const graceRows = await query<RowDataPacket[]>(
+    `SELECT 1 AS ok FROM user_sessions
+     WHERE id = ? AND session_created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+     LIMIT 1`,
+    [sessionRowId],
+  );
+  if (graceRows[0]) return false;
+
+  const idleMinutes = Math.max(1, Math.ceil(getAdminIdleTimeoutMs() / 60_000));
+  const activeRows = await query<RowDataPacket[]>(
+    `SELECT 1 AS ok FROM user_sessions
+     WHERE id = ? AND last_activity_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)
+     LIMIT 1`,
+    [sessionRowId, idleMinutes],
+  );
+  return !activeRows[0];
 }
 
 export class DeviceLimitError extends Error {
@@ -147,7 +172,7 @@ export async function createUserSession(
   const rowId = newSessionRowId();
   const rawToken = generateRawSessionToken();
   const tokenHash = hashSessionToken(rawToken);
-  const expiresAt = new Date(Date.now() + maxAgeSec * 1000);
+  const expiresAt = toMysqlUtcDatetime(new Date(Date.now() + maxAgeSec * 1000));
   const trustScore = options?.trustScore ?? 0;
   const trustLevel = options?.trustLevel ?? "low";
   const deviceId = options?.deviceId ?? null;
