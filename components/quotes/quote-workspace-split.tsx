@@ -53,7 +53,8 @@ export function QuoteWorkspaceSplit({
         data-mobile-tab={mobileTab}
         className={cn(
           "quote-workspace-panels quote-workspace-panels--tabs relative flex min-h-0 flex-1 flex-col overflow-hidden sm:gap-0",
-          "lg:grid lg:grid-cols-[var(--catalog-panel-pct)_0.75rem_minmax(0,1fr)] lg:grid-rows-1 lg:items-stretch lg:gap-0",
+          "max-lg:min-h-[min(52dvh,calc(100dvh-13.5rem))] max-lg:flex-1",
+          "lg:grid lg:grid-cols-[var(--catalog-panel-pct)_0.75rem_minmax(0,1fr)] lg:grid-rows-1 lg:items-stretch lg:gap-0 lg:min-h-0",
         )}
         style={
           {

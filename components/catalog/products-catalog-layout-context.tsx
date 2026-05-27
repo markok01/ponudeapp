@@ -120,8 +120,11 @@ export function ProductsCatalogLayoutProvider({
     isFluidCatalogPanel(containerWidth) || isMobileViewport;
 
   const colsForStyles = useMemo(() => {
-    if (!isMobileViewport || !isFluid) return layout.cols;
-    return colsForFluidMobile(layout.cols, PRODUCTS_MOBILE_FLUID_WEIGHTS);
+    if (!isMobileViewport) return layout.cols;
+    return colsForFluidMobile(
+      isFluid ? layout.cols : PRODUCTS_MOBILE_FLUID_WEIGHTS,
+      PRODUCTS_MOBILE_FLUID_WEIGHTS,
+    );
   }, [layout.cols, isMobileViewport, isFluid]);
 
   const colStyles = useMemo(

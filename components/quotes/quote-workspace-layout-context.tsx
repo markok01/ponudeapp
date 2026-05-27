@@ -211,9 +211,9 @@ export function QuoteWorkspaceLayoutProvider({
   const quoteColExclude: QuoteColumnKey[] = hideQuoteIncVat ? ["incVat"] : [];
 
   const catalogColsForStyles = useMemo(() => {
-    if (!isMobileViewport || !isCatalogFluid) return layout.catalogCols;
+    if (!isMobileViewport) return layout.catalogCols;
     return colsForFluidMobile(
-      layout.catalogCols,
+      isCatalogFluid ? layout.catalogCols : QUOTE_CATALOG_MOBILE_FLUID_WEIGHTS,
       QUOTE_CATALOG_MOBILE_FLUID_WEIGHTS,
     );
   }, [layout.catalogCols, isMobileViewport, isCatalogFluid]);

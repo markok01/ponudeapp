@@ -713,7 +713,7 @@ function EditableProductRow({
       )}
       style={{ height: rowHeightPx }}
     >
-      <ProductsDataCell colKey="sku" className="catalog-col-sku">
+      <ProductsDataCell colKey="sku" className="catalog-col-sku catalog-cell-sku">
         <Input
           className={cn(inputClass, "font-mono")}
           style={inputStyle("sku")}

@@ -10,7 +10,6 @@ import {
 } from "@/lib/pdf-fonts";
 import { formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
-import { inferMeasureUnit } from "@/utils/measure-unit";
 import {
   linePriceAfterDiscount,
   linePriceWithPdv,
@@ -63,10 +62,9 @@ export function buildQuotePdfFileName(quote: QuoteWithItems): string {
 }
 
 const COLUMN_WIDTHS = {
-  name: 96,
-  unit: 14,
-  net: 34,
-  gross: 34,
+  name: 110,
+  net: 38,
+  gross: 38,
 };
 
 function groupQuoteItemsByBrand(
@@ -100,7 +98,7 @@ function brandHeaderRow(label: string, withSpacer: boolean): RowInput[] {
     rows.push([
       {
         content: "",
-        colSpan: 4,
+        colSpan: 3,
         styles: {
           fillColor: COLORS.white,
           lineWidth: 0,
@@ -114,7 +112,7 @@ function brandHeaderRow(label: string, withSpacer: boolean): RowInput[] {
   rows.push([
     {
       content: label.toUpperCase(),
-      colSpan: 4,
+      colSpan: 3,
       styles: {
         fillColor: COLORS.brand,
         textColor: COLORS.white,
@@ -166,19 +164,6 @@ function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
             fontStyle: "normal",
             fontSize: 6.5,
             cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2.5 },
-            minCellHeight: 5,
-          },
-        } as CellDef,
-        {
-          content:
-            item.measure_unit?.trim() ||
-            inferMeasureUnit(item.name, item.category),
-          styles: {
-            fillColor,
-            fontSize: 6,
-            halign: "center",
-            valign: "middle",
-            cellPadding: { top: 1.5, right: 1, bottom: 1.5, left: 1 },
             minCellHeight: 5,
           },
         } as CellDef,
@@ -348,12 +333,7 @@ export async function generateQuotePDF(
   const tableStartY = await drawHeader(doc, quote, options);
   const finalTotal = sumQuoteGross(quote.items);
 
-  const head = [
-    "Naziv artikla",
-    "M.j.",
-    "Bez PDV",
-    "Sa PDV",
-  ];
+  const head = ["Naziv artikla", "Bez PDV", "Sa PDV"];
 
   autoTable(doc, {
     startY: tableStartY,
@@ -386,9 +366,8 @@ export async function generateQuotePDF(
     },
     columnStyles: {
       0: { cellWidth: COLUMN_WIDTHS.name, halign: "left" },
-      1: { cellWidth: COLUMN_WIDTHS.unit, halign: "center" },
-      2: { cellWidth: COLUMN_WIDTHS.net, halign: "right" },
-      3: { cellWidth: COLUMN_WIDTHS.gross, halign: "right" },
+      1: { cellWidth: COLUMN_WIDTHS.net, halign: "right" },
+      2: { cellWidth: COLUMN_WIDTHS.gross, halign: "right" },
     },
     didDrawPage: (data) => {
       setPdfFont(doc, "normal", 7);

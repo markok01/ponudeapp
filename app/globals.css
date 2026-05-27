@@ -311,6 +311,23 @@ body {
     font-variant-numeric: tabular-nums;
   }
 
+  .catalog-table-products .catalog-cell-price {
+    font-size: 0.6875rem;
+    line-height: 1.2;
+  }
+
+  .catalog-table-products .catalog-cell-sku input {
+    font-size: 0.625rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+
+  .catalog-table-products .catalog-cell-price input {
+    font-size: 0.6875rem;
+    padding-left: 0.125rem;
+    padding-right: 0.125rem;
+  }
+
   .catalog-table input {
     min-height: 1.75rem;
   }
@@ -553,7 +570,7 @@ body.quote-panel-drag-active * {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Tablet/telefon: jedan panel (tab), touch resize kolona */
+/* Tablet/telefon: tab Cenovnik | Stavke (kao referentni dizajn) */
 @media (max-width: 1023px) {
   .dashboard-workspace .quote-workspace {
     flex: 1 1 0%;
@@ -563,14 +580,16 @@ body.quote-panel-drag-active * {
   .quote-workspace-split {
     flex: 1 1 0%;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .quote-workspace-panels--tabs {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
-    flex: 1 1 0%;
-    min-height: 0;
-    position: relative;
+    min-height: min(52dvh, calc(100dvh - 13.5rem));
+    overflow: hidden;
   }
 
   .quote-workspace-panels--tabs[data-mobile-tab="catalog"] [data-quote-panel] {
@@ -583,46 +602,45 @@ body.quote-panel-drag-active * {
 
   .quote-workspace-panels--tabs[data-mobile-tab="catalog"] [data-catalog-panel],
   .quote-workspace-panels--tabs[data-mobile-tab="quote"] [data-quote-panel] {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
   }
 
-  .quote-workspace-panels--tabs[data-mobile-tab="quote"] [data-quote-panel] {
-    z-index: 2;
-  }
-
   .quote-workspace-panels--tabs .quote-panel-inner,
   .quote-workspace-panels--tabs .quote-catalog-shell,
   .quote-workspace-panels--tabs .quote-quote-shell {
-    flex: 1 1 0%;
+    flex: 1 1 auto;
     min-height: 0;
-    height: 100%;
     display: flex;
     flex-direction: column;
   }
 
-  .quote-workspace-panels--tabs [data-catalog-panel] .quote-catalog-body,
-  .quote-workspace-panels--tabs [data-catalog-panel] .catalog-scroll-wrap {
-    flex: 1 1 0%;
+  .quote-workspace-panels--tabs [data-catalog-panel] .quote-catalog-body {
+    flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .quote-workspace-panels--tabs [data-catalog-panel] .catalog-scroll-wrap {
+    flex: 1 1 auto;
+    min-height: 12rem;
     display: flex;
     flex-direction: column;
   }
 
   .quote-workspace-panels--tabs [data-catalog-panel] .catalog-scroll-area {
-    flex: 1 1 0%;
-    min-height: 0;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 10rem;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .quote-workspace-panels--tabs [data-quote-panel] .quote-lines-body {
-    flex: 1 1 0%;
+    flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -630,7 +648,7 @@ body.quote-panel-drag-active * {
 
   .quote-workspace-panels--tabs .quote-lines-cards-scroll {
     flex: 1 1 auto;
-    min-height: min(45dvh, calc(100dvh - 16rem));
+    min-height: 10rem;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }

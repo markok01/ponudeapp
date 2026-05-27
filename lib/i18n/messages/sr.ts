@@ -273,7 +273,7 @@ export const messagesSr = {
     exportPdfIncludes:
       "PDF sadrži: naziv artikla, šifru, količinu, cenu, rabat i ukupno.",
     exportPdfIncludesLong:
-      "PDF sadrži: naziv artikla, mernu jedinicu, cenu bez PDV i cenu sa PDV — obe cene sa uračunatim rabatom.",
+      "PDF sadrži: naziv artikla, cenu bez PDV i cenu sa PDV — obe cene sa uračunatim rabatom.",
     showTotalPdf: "Prikaži ukupno na dnu PDF-a",
     totalPdfPlaceholder: "Opciono — ukupan iznos sa PDV ispod tabele.",
     exportPdf: "Export PDF",
