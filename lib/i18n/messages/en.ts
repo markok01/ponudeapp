@@ -283,7 +283,10 @@ export const messagesEn: Messages = {
     exportPdfIncludes:
       "PDF includes: product name, SKU, quantity, price, discount, and totals.",
     exportPdfIncludesLong:
-      "PDF includes: product name, price excl. VAT and incl. VAT — both with discount applied.",
+      "PDF includes: product name, price excl. VAT and incl. VAT — both with discount applied. Optional: UoM column and total at bottom.",
+    showMeasureUnitPdf: "Show UoM column (measure unit)",
+    measureUnitPdfPlaceholder:
+      "On: Name | UoM | Ex VAT | Inc VAT. Off: name and two price columns only.",
     showTotalPdf: "Show total at bottom of PDF",
     totalPdfPlaceholder: "Optional — total incl. VAT below the table",
     exportPdf: "Export PDF",

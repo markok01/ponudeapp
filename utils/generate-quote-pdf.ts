@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import autoTable, { type CellDef, type RowInput } from "jspdf-autotable";
+import autoTable, { type CellDef, type RowInput, type Styles } from "jspdf-autotable";
 import type { QuoteItemWithProduct, QuoteWithItems } from "@/types";
 import { fitImageBox, loadImageDimensions } from "@/lib/file-to-base64";
 import {
@@ -15,6 +15,7 @@ import {
   linePriceWithPdv,
 } from "@/utils/quote-calc";
 import { sumQuoteGross } from "@/utils/prices";
+import { inferMeasureUnit } from "@/utils/measure-unit";
 
 const PAGE_MARGIN = 12;
 const CONTENT_WIDTH = 186;
@@ -33,6 +34,8 @@ export interface GenerateQuotePdfOptions {
   /** @deprecated Rabat je uvek uračunat u cene; opcija se ignoriše. */
   showDiscount?: boolean;
   showTotalSummary: boolean;
+  /** Kolona M.j. (merna jedinica) u tabeli stavki. */
+  showMeasureUnit?: boolean;
   includeLogo?: boolean;
   logoBase64?: string | null;
   companyName?: string;
@@ -61,11 +64,22 @@ export function buildQuotePdfFileName(quote: QuoteWithItems): string {
   return `${customer}-ponuda-${number}.pdf`;
 }
 
-const COLUMN_WIDTHS = {
+const COLUMN_WIDTHS_3 = {
   name: 110,
   net: 38,
   gross: 38,
-};
+} as const;
+
+const COLUMN_WIDTHS_4 = {
+  name: 98,
+  unit: 12,
+  net: 38,
+  gross: 38,
+} as const;
+
+function pdfMeasureUnit(item: QuoteItemWithProduct): string {
+  return item.measure_unit?.trim() || inferMeasureUnit(item.name, item.category);
+}
 
 function groupQuoteItemsByBrand(
   items: QuoteItemWithProduct[],
@@ -91,14 +105,18 @@ function groupQuoteItemsByBrand(
   return groups;
 }
 
-function brandHeaderRow(label: string, withSpacer: boolean): RowInput[] {
+function brandHeaderRow(
+  label: string,
+  withSpacer: boolean,
+  colCount: number,
+): RowInput[] {
   const rows: RowInput[] = [];
 
   if (withSpacer) {
     rows.push([
       {
         content: "",
-        colSpan: 3,
+        colSpan: colCount,
         styles: {
           fillColor: COLORS.white,
           lineWidth: 0,
@@ -112,7 +130,7 @@ function brandHeaderRow(label: string, withSpacer: boolean): RowInput[] {
   rows.push([
     {
       content: label.toUpperCase(),
-      colSpan: 3,
+      colSpan: colCount,
       styles: {
         fillColor: COLORS.brand,
         textColor: COLORS.white,
@@ -130,13 +148,17 @@ function brandHeaderRow(label: string, withSpacer: boolean): RowInput[] {
   return rows;
 }
 
-function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
+function buildTableBody(
+  items: QuoteItemWithProduct[],
+  showMeasureUnit: boolean,
+): RowInput[] {
+  const colCount = showMeasureUnit ? 4 : 3;
   const groups = groupQuoteItemsByBrand(items);
   const body: RowInput[] = [];
   let productStripe = false;
 
   groups.forEach((group, groupIndex) => {
-    body.push(...brandHeaderRow(group.label, groupIndex > 0));
+    body.push(...brandHeaderRow(group.label, groupIndex > 0, colCount));
 
     for (const item of group.items) {
       const netWithDiscount =
@@ -155,7 +177,7 @@ function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
       const fillColor = productStripe ? COLORS.stripe : COLORS.white;
       productStripe = !productStripe;
 
-      body.push([
+      const row: CellDef[] = [
         {
           content: displayName,
           styles: {
@@ -166,7 +188,24 @@ function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
             cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2.5 },
             minCellHeight: 5,
           },
-        } as CellDef,
+        },
+      ];
+
+      if (showMeasureUnit) {
+        row.push({
+          content: pdfMeasureUnit(item),
+          styles: {
+            fillColor,
+            fontSize: 6,
+            halign: "center",
+            valign: "middle",
+            cellPadding: { top: 1.5, right: 1, bottom: 1.5, left: 1 },
+            minCellHeight: 5,
+          },
+        });
+      }
+
+      row.push(
         {
           content: formatPdfMoney(netWithDiscount),
           styles: {
@@ -179,7 +218,7 @@ function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
             cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 1 },
             minCellHeight: 5,
           },
-        } as CellDef,
+        },
         {
           content: formatPdfMoney(grossWithDiscount),
           styles: {
@@ -190,8 +229,10 @@ function buildTableBody(items: QuoteItemWithProduct[]): RowInput[] {
             cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 1 },
             minCellHeight: 5,
           },
-        } as CellDef,
-      ]);
+        },
+      );
+
+      body.push(row);
     }
   });
 
@@ -332,15 +373,31 @@ export async function generateQuotePDF(
 
   const tableStartY = await drawHeader(doc, quote, options);
   const finalTotal = sumQuoteGross(quote.items);
+  const showMeasureUnit = options.showMeasureUnit === true;
 
-  const head = ["Naziv artikla", "Bez PDV", "Sa PDV"];
+  const head = showMeasureUnit
+    ? ["Naziv artikla", "M.j.", "Bez PDV", "Sa PDV"]
+    : ["Naziv artikla", "Bez PDV", "Sa PDV"];
+
+  const columnStyles: Record<string, Partial<Styles>> = showMeasureUnit
+    ? {
+        0: { cellWidth: COLUMN_WIDTHS_4.name, halign: "left" },
+        1: { cellWidth: COLUMN_WIDTHS_4.unit, halign: "center" },
+        2: { cellWidth: COLUMN_WIDTHS_4.net, halign: "right" },
+        3: { cellWidth: COLUMN_WIDTHS_4.gross, halign: "right" },
+      }
+    : {
+        0: { cellWidth: COLUMN_WIDTHS_3.name, halign: "left" },
+        1: { cellWidth: COLUMN_WIDTHS_3.net, halign: "right" },
+        2: { cellWidth: COLUMN_WIDTHS_3.gross, halign: "right" },
+      };
 
   autoTable(doc, {
     startY: tableStartY,
     margin: { left: PAGE_MARGIN, right: PAGE_MARGIN, bottom: 14 },
     tableWidth: CONTENT_WIDTH,
     head: [head],
-    body: buildTableBody(quote.items),
+    body: buildTableBody(quote.items, showMeasureUnit),
     theme: "plain",
     styles: {
       font: PDF_FONT,
@@ -364,11 +421,7 @@ export async function generateQuotePDF(
       halign: "center",
       minCellHeight: 6,
     },
-    columnStyles: {
-      0: { cellWidth: COLUMN_WIDTHS.name, halign: "left" },
-      1: { cellWidth: COLUMN_WIDTHS.net, halign: "right" },
-      2: { cellWidth: COLUMN_WIDTHS.gross, halign: "right" },
-    },
+    columnStyles,
     didDrawPage: (data) => {
       setPdfFont(doc, "normal", 7);
       doc.setTextColor(...COLORS.muted);

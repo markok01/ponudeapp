@@ -12,6 +12,7 @@ import type { Product } from "@/types";
 import {
   formatPdvDisplay,
   formatPriceHoreca,
+  formatPriceHorecaAmount,
   groupProductsByCategory,
   HORECA_BRAND_BG,
   HORECA_HEADER_BG,
@@ -80,7 +81,12 @@ export function CatalogHorecaTable({
   return (
     <div
       ref={panelRef}
-      className="catalog-scroll-wrap flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]"
+      className={cn(
+        "catalog-scroll-wrap flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        isCompactCatalog
+          ? "max-lg:rounded-none max-lg:border-x-0 max-lg:border-t max-lg:border-b max-lg:shadow-none max-lg:bg-card"
+          : "rounded-[var(--radius)] border border-border bg-card/50 shadow-[var(--shadow-soft)]",
+      )}
       data-catalog-fluid={isCatalogFluid ? "true" : "false"}
       data-catalog-focus-name={catalogMobileFocusName ? "true" : "false"}
       data-catalog-compact={isCompactCatalog ? "true" : "false"}
@@ -90,16 +96,25 @@ export function CatalogHorecaTable({
         product={isCompactCatalog ? peekDisplay : null}
         onDismiss={() => setPeekProduct(null)}
       />
-      <p className="scroll-hint-label shrink-0 px-2 pt-1 max-lg:block lg:hidden">
-        {isCompactCatalog ? t("catalog.mobileTableHintCompact") : t("catalog.mobileTableHint")}
-      </p>
-      <div className="catalog-scroll-area min-h-0 flex-1 basis-0 overflow-auto overscroll-contain">
+      {!isCompactCatalog ? (
+        <p className="scroll-hint-label shrink-0 px-2 pt-1 max-lg:block lg:hidden">
+          {t("catalog.mobileTableHint")}
+        </p>
+      ) : null}
+      <div
+        className={cn(
+          "catalog-scroll-area min-h-0 flex-1 basis-0 overscroll-contain",
+          isCompactCatalog
+            ? "overflow-x-hidden overflow-y-auto"
+            : "overflow-auto",
+        )}
+      >
         <table
-          className="catalog-table w-full border-collapse text-sm"
+          className="catalog-table w-full max-w-full border-collapse text-sm"
           style={{
             tableLayout: "fixed",
-            minWidth: catalogTableMinWidth,
-            width: isCatalogFluid ? "100%" : catalogTableMinWidth,
+            minWidth: isCompactCatalog ? 0 : catalogTableMinWidth,
+            width: isCatalogFluid || isCompactCatalog ? "100%" : catalogTableMinWidth,
           }}
         >
           <colgroup>
@@ -128,6 +143,37 @@ export function CatalogHorecaTable({
         </table>
       </div>
     </div>
+  );
+}
+
+function CatalogPriceCell({ price }: { price: number }) {
+  const { isCompactCatalog } = useQuoteWorkspaceLayout();
+
+  if (isCompactCatalog) {
+    return (
+      <CatalogDataCell
+        colKey="price"
+        align="right"
+        className="catalog-cell-price font-mono text-price"
+      >
+        <span className="catalog-price-stacked">
+          <span className="catalog-price-amount tabular-nums">
+            {formatPriceHorecaAmount(price)}
+          </span>
+          <span className="catalog-price-unit">din/kom</span>
+        </span>
+      </CatalogDataCell>
+    );
+  }
+
+  return (
+    <CatalogDataCell
+      colKey="price"
+      align="right"
+      className="catalog-cell-price font-mono tabular-nums text-price"
+    >
+      {formatPriceHoreca(price)}
+    </CatalogDataCell>
   );
 }
 
@@ -319,13 +365,7 @@ function CatalogProductRow({
         </CatalogDataCell>
       ) : null}
       {visibleKeys.includes("price") ? (
-        <CatalogDataCell
-          colKey="price"
-          align="right"
-          className="catalog-cell-price font-mono tabular-nums text-price"
-        >
-          {formatPriceHoreca(product.price)}
-        </CatalogDataCell>
+        <CatalogPriceCell price={product.price} />
       ) : null}
       {visibleKeys.includes("pdv") ? (
         <CatalogDataCell

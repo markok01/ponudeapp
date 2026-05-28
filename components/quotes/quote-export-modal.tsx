@@ -30,11 +30,13 @@ export function QuoteExportModal({
 }: QuoteExportModalProps) {
   const t = useTranslations();
   const [showTotalSummary, setShowTotalSummary] = useState(false);
+  const [showMeasureUnit, setShowMeasureUnit] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setShowTotalSummary(false);
+      setShowMeasureUnit(false);
     }
   }, [open]);
 
@@ -45,6 +47,7 @@ export function QuoteExportModal({
 
       await generateQuotePDF(quote, {
         showTotalSummary,
+        showMeasureUnit,
         includeLogo: Boolean(settings.logoDataUrl),
         logoBase64: settings.logoDataUrl,
         companyName: settings.companyName || undefined,
@@ -73,6 +76,21 @@ export function QuoteExportModal({
           <p className="text-sm text-muted-foreground">
             {t("quotes.exportPdfIncludesLong")}
           </p>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-md)] border border-border bg-muted/40 px-4 py-3 transition-colors hover:bg-accent/40">
+            <input
+              type="checkbox"
+              checked={showMeasureUnit}
+              onChange={(e) => setShowMeasureUnit(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+            />
+            <div>
+              <span className="text-sm font-medium">{t("quotes.showMeasureUnitPdf")}</span>
+              <p className="text-xs text-muted-foreground">
+                {t("quotes.measureUnitPdfPlaceholder")}
+              </p>
+            </div>
+          </label>
 
           <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-md)] border border-border bg-muted/40 px-4 py-3 transition-colors hover:bg-accent/40">
             <input

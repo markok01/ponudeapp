@@ -58,6 +58,16 @@ export function quoteCatalogColsForCompact(
     );
   }
 
+  /* Fokus naziv (samo artikal + cena): cena dobija dovoljno mesta da ne preliva. */
+  if (
+    visible.length === 2 &&
+    visible.includes("name") &&
+    visible.includes("price")
+  ) {
+    out.name = 52;
+    out.price = 48;
+  }
+
   return out;
 }
 

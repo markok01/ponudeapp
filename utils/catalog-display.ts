@@ -5,12 +5,17 @@ export const HORECA_BRAND_BG =
 export const HORECA_HEADER_BG =
   "bg-[var(--horeca-header)] text-foreground";
 
+const horecaPriceFormatter = new Intl.NumberFormat("sr-RS", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+export function formatPriceHorecaAmount(price: number): string {
+  return horecaPriceFormatter.format(price);
+}
+
 export function formatPriceHoreca(price: number, unit = "din/kom"): string {
-  const num = new Intl.NumberFormat("sr-RS", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(price);
-  return `${num} ${unit}`;
+  return `${formatPriceHorecaAmount(price)} ${unit}`;
 }
 
 export function formatPdvDisplay(pdv: number): string {

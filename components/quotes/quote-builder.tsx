@@ -519,7 +519,7 @@ function QuoteBuilderWorkspace({
                 resultCount={catalogTotal}
               />
             </div>
-            <div className="quote-catalog-body flex min-h-0 flex-1 flex-col px-1 pb-1 pt-0 sm:px-2 sm:pb-2 sm:pt-1">
+            <div className="quote-catalog-body flex min-h-0 flex-1 flex-col px-0 pb-0 pt-0 max-lg:min-h-[min(70dvh,100%)] sm:px-2 sm:pb-2 sm:pt-1">
               {loading && !allProducts.length ? (
                 <div className="flex flex-1 items-center justify-center text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin" />
