@@ -80,6 +80,19 @@ export const messagesEn: Messages = {
     languageSr: "Serbian",
     languageEn: "English",
     languageSaved: "Language saved",
+    desktopTitle: "Desktop app",
+    desktopHelp:
+      "Add PonudeApp to your desktop as an app or shortcut — faster access without browser tabs.",
+    desktopInstall: "Install app",
+    desktopCreateLink: "Create desktop link",
+    desktopInstallHint:
+      "Chrome or Edge will open the install dialog. The app opens in its own window.",
+    desktopLinkHint:
+      "Downloads a .webloc (Mac) or .url (Windows) file — move it to Desktop and open as a link.",
+    desktopShortcutReady: "Downloaded: {file} — move it to Desktop.",
+    desktopInstalled: "App installed",
+    desktopInstallDismissed: "Install dismissed",
+    desktopAlreadyInstalled: "Already running in desktop mode",
     logoTitle: "Company logo",
     logoHelp: "Logo is stored in the database and used on all PDF quotes from any device.",
     noLogo: "No logo",

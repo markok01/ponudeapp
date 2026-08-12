@@ -5,6 +5,7 @@ import { ImagePlus, Loader2, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminSessionsPanel } from "@/components/settings/admin-sessions-panel";
 import { AdminUsersPanel } from "@/components/settings/admin-users-panel";
+import { DesktopAppCard } from "@/components/settings/desktop-app-card";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { LanguageSettingsCard } from "@/components/settings/language-settings-card";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -112,6 +113,8 @@ export default function SettingsPage() {
     <DashboardShell title={t("settings.title")} description={t("settings.description")}>
       <div className="mx-auto w-full max-w-xl space-y-4 sm:space-y-6">
         <LanguageSettingsCard />
+
+        <DesktopAppCard />
 
         <Card>
           <CardHeader>

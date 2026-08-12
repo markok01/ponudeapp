@@ -78,6 +78,19 @@ export const messagesSr = {
     languageSr: "Srpski",
     languageEn: "English",
     languageSaved: "Jezik sačuvan",
+    desktopTitle: "Desktop aplikacija",
+    desktopHelp:
+      "Dodaj PonudeApp na desktop kao aplikaciju ili prečicu — brži pristup bez otvaranja browser tabova.",
+    desktopInstall: "Instaliraj aplikaciju",
+    desktopCreateLink: "Napravi link na desktop",
+    desktopInstallHint:
+      "Chrome ili Edge će otvoriti prozor za instalaciju. Aplikacija se otvara u posebnom prozoru.",
+    desktopLinkHint:
+      "Preuzima se .webloc (Mac) ili .url (Windows) fajl — premesti ga na Desktop i otvori kao link.",
+    desktopShortcutReady: "Preuzeto: {file} — premesti na Desktop.",
+    desktopInstalled: "Aplikacija je instalirana",
+    desktopInstallDismissed: "Instalacija otkazana",
+    desktopAlreadyInstalled: "Već radiš u desktop režimu",
     logoTitle: "Logo kompanije",
     logoHelp: "Logo se čuva u bazi i koristi na svim PDF ponudama sa bilo kog uređaja.",
     noLogo: "Nema logotipa",
