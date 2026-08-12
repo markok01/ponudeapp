@@ -18,11 +18,14 @@ function formatApiError(data: Record<string, unknown>): string | undefined {
 }
 
 function getConverterConfig() {
-  const baseUrl = process.env.PDF_CONVERTER_URL ?? "http://localhost:8000";
+  const rawUrl = process.env.PDF_CONVERTER_URL?.trim();
+  const baseUrl =
+    rawUrl ||
+    (process.env.VERCEL ? "" : "http://localhost:8000");
   const apiKey = process.env.PDF_CONVERTER_API_KEY ?? "";
   const timeoutMs = Number(process.env.PDF_CONVERTER_TIMEOUT_MS ?? "300000");
 
-  return { baseUrl: baseUrl.replace(/\/$/, ""), apiKey, timeoutMs };
+  return { baseUrl: baseUrl.replace(/\/$/, ""), apiKey, timeoutMs, configured: Boolean(rawUrl) };
 }
 
 function headers(apiKey: string): HeadersInit {
@@ -72,8 +75,13 @@ export class PdfConverterError extends Error {
   }
 }
 
+export function isPdfConverterUrlConfigured(): boolean {
+  return Boolean(process.env.PDF_CONVERTER_URL?.trim());
+}
+
 export async function checkPdfConverterHealth(): Promise<PdfConverterHealth | null> {
   const { baseUrl, apiKey, timeoutMs } = getConverterConfig();
+  if (!baseUrl) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 10000));
 
@@ -103,6 +111,12 @@ export async function startPdfConversion(
   options: { exportMode: ExportMode; baseName: string },
 ): Promise<ConvertStartResponse> {
   const { baseUrl, apiKey, timeoutMs } = getConverterConfig();
+  if (!baseUrl) {
+    throw new PdfConverterError(
+      "PDF_CONVERTER_URL nije podešen. Na Vercelu dodajte URL Render servisa u Project env.",
+      503,
+    );
+  }
   const formData = new FormData();
   formData.append("file", new Blob([new Uint8Array(file)], { type: "application/pdf" }), fileName);
   formData.append("export_mode", options.exportMode);

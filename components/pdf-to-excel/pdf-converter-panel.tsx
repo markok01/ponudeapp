@@ -217,7 +217,7 @@ export function PdfConverterPanel() {
     <div className="mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-4 sm:gap-6">
       {serviceOk === false && (
         <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
-          {t("pdfToExcel.horecaBanner")}
+          {t("pdfToExcel.serviceUnavailable")}
         </div>
       )}
 

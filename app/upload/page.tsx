@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowDownToLine,
   Eye,
@@ -40,6 +40,24 @@ export default function UploadPage() {
   const [importing, setImporting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [preview, setPreview] = useState<ImportPreviewDiff | null>(null);
+  const [pdfServiceOk, setPdfServiceOk] = useState<boolean | null>(null);
+  const [pdfLocalHoreca, setPdfLocalHoreca] = useState(false);
+
+  const checkPdfService = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pdf-convert");
+      const data = await res.json();
+      setPdfServiceOk(data.available === true);
+      setPdfLocalHoreca(data.localHorecaSync === true);
+    } catch {
+      setPdfServiceOk(false);
+      setPdfLocalHoreca(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkPdfService();
+  }, [checkPdfService]);
 
   async function handleConvert(e: React.FormEvent) {
     e.preventDefault();
@@ -244,6 +262,13 @@ export default function UploadPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {pdfServiceOk === false ? (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-900">
+                {pdfLocalHoreca
+                  ? t("upload.converterLocalHint")
+                  : t("upload.converterUnavailable")}
+              </div>
+            ) : null}
             <form onSubmit={handleConvert} className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="flex-1 space-y-2">
                 <Input

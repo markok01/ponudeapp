@@ -4,16 +4,11 @@ import {
   PdfConverterError,
   startPdfConversion,
 } from "@/services/pdf-converter-client";
-import {
-  convertHorecaPdfToExcel,
-  isLikelyHorecaFile,
-} from "@/utils/horeca-pdf-convert";
-import { convertPdfToExcel } from "@/utils/price-list-parse";
+import { pdfConverterUnavailableMessage } from "@/lib/pdf-convert-errors";
+import { tryLocalHorecaPdfToExcel } from "@/utils/horeca-pdf-convert";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const isVercel = Boolean(process.env.VERCEL);
 
 /**
  * PDF → Excel (upload). Na Vercelu odmah vraća jobId (bez čekanja Rendera u jednom requestu).
@@ -38,27 +33,8 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const baseName = listName || file.name.replace(/\.pdf$/i, "");
-    const likelyHoreca = isLikelyHorecaFile(file.name) || baseName.toLowerCase().includes("cenovnik");
-
-    if (likelyHoreca) {
-      try {
-        const { excelBuffer, fileName, productCount } = await convertHorecaPdfToExcel(
-          buffer,
-          baseName,
-        );
-        return NextResponse.json({
-          rowCount: productCount,
-          excelBase64: excelBuffer.toString("base64"),
-          fileName,
-          format: "horeca",
-        });
-      } catch (horecaError) {
-        console.warn("HoReCa parser:", horecaError);
-      }
-    }
 
     const remoteHealthy = await checkPdfConverterHealth();
-
     if (remoteHealthy) {
       const result = await startPdfConversion(buffer, file.name, {
         exportMode: "single_sheet",
@@ -67,43 +43,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ async: true, jobId: result.jobId, message: result.message });
     }
 
-    if (!isVercel) {
-      try {
-        const { excelBuffer, fileName, productCount } = await convertHorecaPdfToExcel(
-          buffer,
-          baseName,
-        );
-        return NextResponse.json({
-          rowCount: productCount,
-          excelBase64: excelBuffer.toString("base64"),
-          fileName,
-          format: "horeca",
-        });
-      } catch (horecaError) {
-        console.warn("HoReCa local parser failed:", horecaError);
-      }
-
-      try {
-        const { rows, excelBuffer, fileName } = await convertPdfToExcel(buffer, baseName);
-        return NextResponse.json({
-          rowCount: rows.length,
-          excelBase64: excelBuffer.toString("base64"),
-          fileName,
-          format: "simple",
-        });
-      } catch (simpleError) {
-        console.warn("Simple PDF parser failed:", simpleError);
-      }
+    const localHoreca = await tryLocalHorecaPdfToExcel(buffer, baseName, file.name);
+    if (localHoreca) {
+      return NextResponse.json({
+        rowCount: localHoreca.productCount,
+        excelBase64: localHoreca.excelBuffer.toString("base64"),
+        fileName: localHoreca.fileName,
+        format: "horeca",
+      });
     }
 
-    return NextResponse.json(
-      {
-        error: isVercel
-          ? "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu."
-          : "PDF converter nije dostupan. Pokrenite: docker compose up pdf-converter",
-      },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: pdfConverterUnavailableMessage() }, { status: 503 });
   } catch (error) {
     console.error("POST /api/convert-pdf", error);
     if (error instanceof PdfConverterError) {

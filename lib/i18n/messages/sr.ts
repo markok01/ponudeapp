@@ -341,6 +341,10 @@ export const messagesSr = {
     historyLoadFailed: "Istorija uvoza nije učitana",
     rollbackSuccess: "Snapshot vraćen",
     rollbackFailed: "Rollback nije uspeo",
+    converterUnavailable:
+      "PDF converter nije dostupan (pdfplumber servis). Na Vercelu: PDF_CONVERTER_URL + PDF_CONVERTER_API_KEY. Za cenovnik koristite originalni .xlsx.",
+    converterLocalHint:
+      "Render/Docker servis nije pokrenut. HoReCa cenovnik PDF može i dalje raditi lokalno (python3 + pdfplumber). Za generičke PDF-ove: npm run pdf-converter:docker.",
   },
   pdfToExcel: {
     title: "PDF → Excel",
@@ -349,7 +353,7 @@ export const messagesSr = {
     panelDesc:
       "Profesionalna ekstrakcija tabela iz faktura, ponuda, cenovnika i bankovnih izvoda.",
     horecaBanner:
-      "HoReCa cenovnik radi lokalno (potreban python3). Za cloud koristite Render servis.",
+      "HoReCa cenovnik lokalno: python3 + pdfplumber (scripts/horeca-from-pdf.py). U cloud-u: Render PDF servis.",
     fileName: "Naziv Excel fajla",
     exportMode: "Način exporta",
     singleSheet: "Jedan sheet",
@@ -376,7 +380,7 @@ export const messagesSr = {
     downloaded: "Excel preuzet",
     downloadFailed: "Preuzimanje nije uspelo",
     serviceUnavailable:
-      "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu.",
+      "PDF converter servis nije dostupan. Na Vercelu postavite PDF_CONVERTER_URL i PDF_CONVERTER_API_KEY (Render backend/). Lokalno: npm run pdf-converter:docker ili python3 + pdfplumber za HoReCa.",
     progressAnalyze: "Analiza dokumenta",
     progressExtract: "Ekstrakcija tabela",
     progressProcess: "Obrada podataka",

@@ -1,28 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   checkPdfConverterHealth,
+  isPdfConverterUrlConfigured,
   PdfConverterError,
   startPdfConversion,
 } from "@/services/pdf-converter-client";
-import {
-  convertHorecaPdfToExcel,
-  isLikelyHorecaFile,
-} from "@/utils/horeca-pdf-convert";
+import { pdfConverterUnavailableMessage } from "@/lib/pdf-convert-errors";
+import { tryLocalHorecaPdfToExcel } from "@/utils/horeca-pdf-convert";
 import type { ExportMode } from "@/types/pdf-converter";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const isVercel = Boolean(process.env.VERCEL);
+function syncHorecaResponse(result: {
+  excelBuffer: Buffer;
+  fileName: string;
+  productCount: number;
+  sheetCount: number;
+}) {
+  return NextResponse.json({
+    jobId: `horeca-${Date.now()}`,
+    message: "HoReCa konverzija završena (pdfplumber)",
+    sync: true,
+    status: "completed",
+    progress: 100,
+    fileName: result.fileName,
+    rowCount: result.productCount,
+    sheetCount: result.sheetCount,
+    excelBase64: result.excelBuffer.toString("base64"),
+    format: "horeca",
+  });
+}
 
 export async function GET() {
+  const configured = isPdfConverterUrlConfigured();
+  const localHorecaSync = !process.env.VERCEL;
   const health = await checkPdfConverterHealth();
   if (!health) {
-    return NextResponse.json(
-      { available: false, error: "PDF converter servis nije dostupan" },
-    );
+    return NextResponse.json({
+      available: false,
+      configured,
+      localHorecaSync,
+      error: pdfConverterUnavailableMessage(),
+    });
   }
-  return NextResponse.json({ available: true, ...health });
+  return NextResponse.json({ available: true, configured, localHorecaSync, ...health });
 }
 
 export async function POST(request: NextRequest) {
@@ -41,71 +63,21 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const likelyHoreca =
-      isLikelyHorecaFile(file.name) ||
-      String(formData.get("baseName") ?? "")
-        .toLowerCase()
-        .includes("cenovnik");
 
-    if (likelyHoreca) {
-      try {
-        const { excelBuffer, fileName, productCount, sheetCount } =
-          await convertHorecaPdfToExcel(buffer, baseName);
-
-        return NextResponse.json({
-          jobId: `horeca-${Date.now()}`,
-          message: "HoReCa konverzija završena",
-          sync: true,
-          status: "completed",
-          progress: 100,
-          fileName,
-          rowCount: productCount,
-          sheetCount,
-          excelBase64: excelBuffer.toString("base64"),
-          format: "horeca",
-        });
-      } catch (horecaError) {
-        console.warn("HoReCa parser:", horecaError);
-      }
-    }
-
+    /** 1) Primarni put: Python FastAPI (pdfplumber, camelot, OCR) — bilo koji PDF. */
     const health = await checkPdfConverterHealth();
-
     if (health) {
       const result = await startPdfConversion(buffer, file.name, { exportMode, baseName });
       return NextResponse.json(result);
     }
 
-    if (!isVercel) {
-      try {
-        const { excelBuffer, fileName, productCount, sheetCount } =
-          await convertHorecaPdfToExcel(buffer, baseName);
-
-        return NextResponse.json({
-          jobId: `horeca-${Date.now()}`,
-          message: "HoReCa konverzija završena",
-          sync: true,
-          status: "completed",
-          progress: 100,
-          fileName,
-          rowCount: productCount,
-          sheetCount,
-          excelBase64: excelBuffer.toString("base64"),
-          format: "horeca",
-        });
-      } catch (horecaError) {
-        console.warn("HoReCa local parser:", horecaError);
-      }
+    /** 2) Lokalno: sync HoReCa preko scripts/horeca-from-pdf.py (pdfplumber tabele). */
+    const localHoreca = await tryLocalHorecaPdfToExcel(buffer, baseName, file.name);
+    if (localHoreca) {
+      return syncHorecaResponse(localHoreca);
     }
 
-    return NextResponse.json(
-      {
-        error: isVercel
-          ? "PDF converter servis nije dostupan. Proverite PDF_CONVERTER_URL na Vercelu."
-          : "Za generičke PDF-ove pokrenite: docker compose up pdf-converter.",
-      },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: pdfConverterUnavailableMessage() }, { status: 503 });
   } catch (error) {
     console.error("POST /api/pdf-convert", error);
     if (error instanceof PdfConverterError) {

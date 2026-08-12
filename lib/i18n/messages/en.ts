@@ -343,6 +343,10 @@ export const messagesEn: Messages = {
     historyLoadFailed: "Failed to load import history",
     rollbackSuccess: "Snapshot restored",
     rollbackFailed: "Rollback failed",
+    converterUnavailable:
+      "PDF converter unavailable (pdfplumber service). On Vercel: PDF_CONVERTER_URL + PDF_CONVERTER_API_KEY. For price lists use the original .xlsx.",
+    converterLocalHint:
+      "Render/Docker service is not running. HoReCa price list PDF may still work locally (python3 + pdfplumber). For generic PDFs: npm run pdf-converter:docker.",
   },
   pdfToExcel: {
     title: "PDF → Excel",
@@ -351,7 +355,7 @@ export const messagesEn: Messages = {
     panelDesc:
       "Professional table extraction from invoices, quotes, price lists, and bank statements.",
     horecaBanner:
-      "HoReCa price list runs locally (python3 required). Use Render service in the cloud.",
+      "HoReCa price list locally: python3 + pdfplumber (scripts/horeca-from-pdf.py). In cloud: Render PDF service.",
     fileName: "Excel file name",
     exportMode: "Export mode",
     singleSheet: "Single sheet",
@@ -378,7 +382,7 @@ export const messagesEn: Messages = {
     downloaded: "Excel downloaded",
     downloadFailed: "Download failed",
     serviceUnavailable:
-      "PDF converter service unavailable. Check PDF_CONVERTER_URL on Vercel.",
+      "PDF converter service unavailable. On Vercel set PDF_CONVERTER_URL and PDF_CONVERTER_API_KEY (Render backend/). Local: npm run pdf-converter:docker or python3 + pdfplumber for HoReCa.",
     progressAnalyze: "Analyzing document",
     progressExtract: "Extracting tables",
     progressProcess: "Processing data",

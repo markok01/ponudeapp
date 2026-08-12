@@ -40,7 +40,7 @@ npm run dev
 
 ```bash
 # Docker (preporučeno)
-docker compose up pdf-converter --build
+npm run pdf-converter:docker
 
 # ili lokalno — vidi backend/README.md
 ```
@@ -49,6 +49,23 @@ U `.env.local` dodajte:
 
 ```
 PDF_CONVERTER_URL=http://localhost:8000
+```
+
+**Produkcija (Vercel):** u Project Settings → Environment Variables (ne Shared):
+
+| Varijabla | Opis |
+|-----------|------|
+| `PDF_CONVERTER_URL` | URL Render servisa (`backend/` deploy) |
+| `PDF_CONVERTER_API_KEY` | Isti secret kao `API_KEY` na Renderu |
+| `PDF_CONVERTER_TIMEOUT_MS` | Opciono, podrazumevano 300000 |
+
+Bez ovih varijabli PDF konverzija vraća 503 — koristite originalni `.xlsx` cenovnik.
+
+**Test HoReCa PDF lokalno:**
+
+```bash
+pip install pdfplumber
+node scripts/test-horeca-pdf.mjs "HoReCa cenovnik -primena 01.09.2026.pdf"
 ```
 
 Otvorite [http://localhost:3000](http://localhost:3000).
