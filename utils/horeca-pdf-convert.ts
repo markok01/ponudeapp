@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import type { HorecaExcelRow, HorecaLayout, HorecaRowKind } from "@/utils/horeca-excel-styles";
 import { exportHorecaWorkbook } from "@/utils/horeca-excel-export";
+import { parseHorecaPdfNode } from "@/utils/horeca-pdf-parse-node";
 
 interface PythonSheet {
   name: string;
@@ -47,6 +48,34 @@ async function runHorecaPdfScript(pdfPath: string): Promise<{
   });
 }
 
+async function parseHorecaPdf(buffer: Buffer): Promise<{
+  sheets: PythonSheet[];
+  productCount: number;
+}> {
+  const onVercel = Boolean(process.env.VERCEL);
+
+  if (onVercel) {
+    const node = await parseHorecaPdfNode(buffer);
+    return {
+      sheets: node.sheets,
+      productCount: node.productCount,
+    };
+  }
+
+  const dir = await mkdtemp(join(tmpdir(), "horeca-pdf-"));
+  const pdfPath = join(dir, "input.pdf");
+
+  try {
+    await writeFile(pdfPath, buffer);
+    return await runHorecaPdfScript(pdfPath);
+  } catch (pythonError) {
+    console.warn("[horeca-pdf] python parser failed, trying node:", pythonError);
+    return await parseHorecaPdfNode(buffer);
+  } finally {
+    await unlink(pdfPath).catch(() => {});
+  }
+}
+
 export async function convertHorecaPdfToExcel(
   buffer: Buffer,
   baseName: string,
@@ -56,37 +85,29 @@ export async function convertHorecaPdfToExcel(
   productCount: number;
   sheetCount: number;
 }> {
-  const dir = await mkdtemp(join(tmpdir(), "horeca-pdf-"));
-  const pdfPath = join(dir, "input.pdf");
+  const { sheets, productCount } = await parseHorecaPdf(buffer);
 
-  try {
-    await writeFile(pdfPath, buffer);
-    const { sheets, productCount } = await runHorecaPdfScript(pdfPath);
-
-    if (!sheets.length || productCount < 1) {
-      throw new Error(
-        "HoReCa PDF nije prepoznat ili nema proizvoda. Koristite originalni .xlsx cenovnik.",
-      );
-    }
-
-    const excelBuffer = await exportHorecaWorkbook(
-      sheets.map((s) => ({
-        name: s.name,
-        layout: s.layout,
-        rows: s.rows as HorecaExcelRow[],
-      })),
+  if (!sheets.length || productCount < 1) {
+    throw new Error(
+      "HoReCa PDF nije prepoznat ili nema proizvoda. Koristite originalni .xlsx cenovnik.",
     );
-
-    const safeName = baseName.replace(/[^\w\s-]/g, "").replace(/\s+/g, "-") || "horeca-cenovnik";
-    return {
-      excelBuffer,
-      fileName: `${safeName}.xlsx`,
-      productCount,
-      sheetCount: sheets.length,
-    };
-  } finally {
-    await unlink(pdfPath).catch(() => {});
   }
+
+  const excelBuffer = await exportHorecaWorkbook(
+    sheets.map((s) => ({
+      name: s.name,
+      layout: s.layout,
+      rows: s.rows as HorecaExcelRow[],
+    })),
+  );
+
+  const safeName = baseName.replace(/[^\w\s-]/g, "").replace(/\s+/g, "-") || "horeca-cenovnik";
+  return {
+    excelBuffer,
+    fileName: `${safeName}.xlsx`,
+    productCount,
+    sheetCount: sheets.length,
+  };
 }
 
 export function isLikelyHorecaFile(filename: string): boolean {

@@ -4,7 +4,10 @@ import {
   PdfConverterError,
   startPdfConversion,
 } from "@/services/pdf-converter-client";
-import { convertHorecaPdfToExcel } from "@/utils/horeca-pdf-convert";
+import {
+  convertHorecaPdfToExcel,
+  isLikelyHorecaFile,
+} from "@/utils/horeca-pdf-convert";
 import type { ExportMode } from "@/types/pdf-converter";
 
 export const runtime = "nodejs";
@@ -38,6 +41,33 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    const likelyHoreca =
+      isLikelyHorecaFile(file.name) ||
+      String(formData.get("baseName") ?? "")
+        .toLowerCase()
+        .includes("cenovnik");
+
+    if (likelyHoreca) {
+      try {
+        const { excelBuffer, fileName, productCount, sheetCount } =
+          await convertHorecaPdfToExcel(buffer, baseName);
+
+        return NextResponse.json({
+          jobId: `horeca-${Date.now()}`,
+          message: "HoReCa konverzija završena",
+          sync: true,
+          status: "completed",
+          progress: 100,
+          fileName,
+          rowCount: productCount,
+          sheetCount,
+          excelBase64: excelBuffer.toString("base64"),
+          format: "horeca",
+        });
+      } catch (horecaError) {
+        console.warn("HoReCa parser:", horecaError);
+      }
+    }
 
     const health = await checkPdfConverterHealth();
 

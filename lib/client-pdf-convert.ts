@@ -28,7 +28,9 @@ export async function convertPdfOnServer(
   if (!res.ok) {
     const hint =
       res.status === 503
-        ? " Proverite /api/health → pdfConverter i env na Vercelu (ponudeapp projekat)."
+        ? process.env.NODE_ENV === "production"
+          ? " Za HoReCa PDF na Vercelu: proverite /api/health. Za generičke PDF-ove postavite PDF_CONVERTER_URL."
+          : " Lokalno: npm run pdf-converter:docker ili koristite .xlsx cenovnik."
         : "";
     throw new Error((data.error ?? "Konverzija nije uspela") + hint);
   }
