@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser, parseSessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { isStaffRole } from "@/lib/roles";
 import { assertAdminMutationAllowed } from "@/lib/security/csrf";
 import { writeSecurityAuditLog } from "@/lib/security/audit-log";
 import {
@@ -22,6 +23,7 @@ export interface AdminApiContext {
     email: string;
     name: string;
     role: string;
+    organizationId: number;
   };
   meta: RequestSecurityMeta;
 }
@@ -51,7 +53,7 @@ export async function withAdminApi(
     request.cookies.get(SESSION_COOKIE)?.value,
   );
 
-  if (!session || session.role !== "admin") {
+  if (!session || !isStaffRole(session.role)) {
     await writeSecurityAuditLog({
       requestId: meta.requestId,
       eventType: "admin.api.forbidden",

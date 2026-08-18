@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { TruncatedProductName } from "@/components/ui/product-name-tooltip";
 import { cn } from "@/lib/utils";
 import type { QuoteLineDraft } from "@/types";
+import { type Currency } from "@/lib/currency";
 import { formatCurrency } from "@/utils/format";
 import {
   quoteLineGrossAfterDiscount,
@@ -17,6 +18,7 @@ import { handleDiscountInputKeyDown } from "@/utils/quote-line-discount-nav";
 
 interface QuoteLineCardsProps {
   lines: QuoteLineDraft[];
+  currency: Currency;
   activeProductId: number | null;
   discountInputValue: (productId: number, stored: number) => string;
   onDiscountChange: (productId: number, raw: string) => void;
@@ -27,6 +29,7 @@ interface QuoteLineCardsProps {
 
 export function QuoteLineCards({
   lines,
+  currency,
   activeProductId,
   discountInputValue,
   onDiscountChange,
@@ -112,10 +115,10 @@ export function QuoteLineCards({
               </div>
               <div className="text-right text-xs tabular-nums">
                 <p className="text-[10px] text-muted-foreground">Ukupno bez PDV</p>
-                <p className="font-semibold text-price">{formatCurrency(netLine)}</p>
+                <p className="font-semibold text-price">{formatCurrency(netLine, currency)}</p>
                 <p className="text-[10px] text-muted-foreground">
                   sa PDV{" "}
-                  <span className="tabular-nums">{formatCurrency(grossLine)}</span>
+                  <span className="tabular-nums">{formatCurrency(grossLine, currency)}</span>
                 </p>
               </div>
             </div>

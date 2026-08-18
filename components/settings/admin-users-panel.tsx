@@ -1,14 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Trash2, UserPlus, Users } from "lucide-react";
+import { Loader2, Mail, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PasswordInput } from "@/components/ui/password-input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 
@@ -20,31 +26,56 @@ interface UserRow {
   active: boolean;
 }
 
+interface InviteRow {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  expires_at: string;
+}
+
+function roleLabel(
+  role: string,
+  t: (key: string) => string,
+): string {
+  if (role === "owner") return t("settings.userRoleOwner");
+  if (role === "admin") return t("settings.userRoleAdmin");
+  return t("settings.userRoleUser");
+}
+
 export function AdminUsersPanel() {
   const t = useTranslations();
   const adminAccess = useIsAdmin();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     email: "",
-    password: "",
     name: "",
+    role: "user" as "admin" | "user",
   });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/users");
-      if (res.status === 403) {
+      const [usersRes, invitesRes] = await Promise.all([
+        fetch("/api/admin/users"),
+        fetch("/api/admin/invites"),
+      ]);
+      if (usersRes.status === 403) {
         setUsers([]);
+        setInvites([]);
         return;
       }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setUsers(data);
+      const usersData = await usersRes.json();
+      const invitesData = await invitesRes.json();
+      if (!usersRes.ok) throw new Error(usersData.error);
+      if (!invitesRes.ok) throw new Error(invitesData.error);
+      setUsers(usersData);
+      setInvites(invitesData);
     } catch {
       toast.error(t("settings.usersLoadFailed"));
     } finally {
@@ -69,19 +100,23 @@ export function AdminUsersPanel() {
     );
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/users", {
+      const res = await fetch("/api/admin/invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(t("settings.accountCreated", { email: data.email }));
-      setForm({ email: "", password: "", name: "" });
+      toast.success(
+        data.delivered
+          ? t("settings.inviteSent", { email: data.email })
+          : t("settings.inviteLogged", { email: data.email }),
+      );
+      setForm({ email: "", name: "", role: "user" });
       void load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("common.error"));
@@ -120,6 +155,18 @@ export function AdminUsersPanel() {
     }
   }
 
+  async function revokeInvite(id: number) {
+    try {
+      const res = await fetch(`/api/admin/invites?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(t("settings.inviteRevoked"));
+      void load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("common.error"));
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -140,35 +187,66 @@ export function AdminUsersPanel() {
               <div>
                 <p className="font-medium">{u.name || u.email}</p>
                 <p className="text-xs text-muted-foreground">
-                  {u.email} · {u.role}
+                  {u.email} · {roleLabel(u.role, t)}
                   {!u.active ? ` · ${t("settings.deactivated")}` : ""}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {u.active ? (
+              {u.role !== "owner" ? (
+                <div className="flex flex-wrap gap-2">
+                  {u.active ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void deactivate(u.id)}
+                    >
+                      {t("settings.deactivate")}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => void deactivate(u.id)}
+                    className="text-destructive"
+                    onClick={() => setDeleteTarget(u)}
                   >
-                    {t("settings.deactivate")}
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {t("settings.deleteUser")}
                   </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => setDeleteTarget(u)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {t("settings.deleteUser")}
-                </Button>
-              </div>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>
+
+        {invites.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t("settings.pendingInvites")}</p>
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {invites.map((inv) => (
+                <li
+                  key={inv.id}
+                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-medium">{inv.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {roleLabel(inv.role, t)} · {t("settings.invitePending")}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void revokeInvite(inv.id)}
+                  >
+                    {t("settings.inviteRevoke")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <ConfirmDialog
           open={deleteTarget !== null}
@@ -187,10 +265,10 @@ export function AdminUsersPanel() {
           }}
         />
 
-        <form onSubmit={(e) => void handleCreate(e)} className="space-y-4 border-t pt-4">
+        <form onSubmit={(e) => void handleInvite(e)} className="space-y-4 border-t pt-4">
           <p className="flex items-center gap-2 text-sm font-medium">
             <UserPlus className="h-4 w-4" />
-            {t("settings.addUser")}
+            {t("settings.inviteUser")}
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
@@ -211,22 +289,28 @@ export function AdminUsersPanel() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="admin-password">{t("settings.userPassword")}</Label>
-              <PasswordInput
-                id="admin-password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
+            <div className="space-y-2">
+              <Label>{t("settings.userRole")}</Label>
+              <Select
+                value={form.role}
+                onValueChange={(value) =>
+                  setForm({ ...form, role: value === "admin" ? "admin" : "user" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">{t("settings.userRoleUser")}</SelectItem>
+                  <SelectItem value="admin">{t("settings.userRoleAdmin")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">{t("settings.usersAppOnlyRole")}</p>
+          <p className="text-xs text-muted-foreground">{t("settings.inviteHelp")}</p>
           <Button type="submit" disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {t("settings.createAccount")}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            {t("settings.sendInvite")}
           </Button>
         </form>
       </CardContent>

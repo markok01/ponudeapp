@@ -4,19 +4,17 @@ import {
   countUsers,
   getUserByEmail,
 } from "@/services/users";
+import { DeviceLimitError } from "@/services/user-sessions";
 import {
-  createUserSession,
-  DeviceLimitError,
-  getValidUserSession,
-  revokeUserSession,
-} from "@/services/user-sessions";
+  establishUserSession,
+  OrgSuspendedError,
+} from "@/services/auth-session";
 import {
   createSessionToken,
   getSessionMaxAgeSec,
   isAuthEnabled,
   isAuthRequired,
   isLegacyPasswordAuth,
-  parseSessionToken,
   sessionCookieOptions,
   SESSION_COOKIE,
   verifyAppPassword,
@@ -29,18 +27,12 @@ import {
   recordRateLimitFailure,
 } from "@/lib/security/rate-limit";
 import {
-  DEVICE_COOKIE,
-  deviceCookieOptions,
-  generateDeviceId,
-  readDeviceIdFromRequest,
-} from "@/lib/security/device-id";
-import { buildTrustForLogin } from "@/lib/security/session-trust";
-import {
   evaluateLoginSuspicious,
   recordSuspiciousAlert,
 } from "@/lib/security/suspicious";
 import { getRequestSecurityMeta } from "@/lib/security/request-context";
 import { getSessionClientInfo } from "@/lib/session-client-info";
+import { authError } from "@/lib/authI18n";
 
 export async function POST(request: NextRequest) {
   const meta = getRequestSecurityMeta(request);
@@ -64,7 +56,7 @@ export async function POST(request: NextRequest) {
           userAgent: meta.userAgent,
           failureReason: "legacy_invalid_password",
         });
-        return NextResponse.json({ error: "Pogrešna lozinka" }, { status: 401 });
+        return authError(request, "wrong_password", 401);
       }
       const token = createSessionToken({ id: 0, email: "legacy@app" }, maxAgeSec);
       const response = NextResponse.json({ ok: true, authEnabled: true, legacy: true });
@@ -76,14 +68,12 @@ export async function POST(request: NextRequest) {
     const password = String(body.password ?? "");
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email i lozinka su obavezni" },
-        { status: 400 },
-      );
+      return authError(request, "email_password_required", 400);
     }
 
     const existingAccount = await getUserByEmail(email);
-    const isAdminTarget = existingAccount?.role === "admin";
+    const isAdminTarget =
+      existingAccount?.role === "admin" || existingAccount?.role === "owner";
     const rateKey = `${meta.ipAddress ?? "unknown"}:${email}`;
     const rate = await checkRateLimit(
       "login",
@@ -99,22 +89,13 @@ export async function POST(request: NextRequest) {
         failureReason: isAdminTarget ? "admin_login_rate_limit" : "login_rate_limit",
         metadata: { retryAfterSec: rate.retryAfterSec },
       });
-      return NextResponse.json(
-        { error: "Previše pokušaja prijave. Pokušajte kasnije." },
-        { status: 429 },
-      );
+      return authError(request, "too_many_login_attempts", 429);
     }
 
     if (isAuthRequired()) {
       const total = await countUsers();
       if (total === 0) {
-        return NextResponse.json(
-          {
-            error:
-              "Nema kreiranih naloga. Pokrenite: node scripts/create-user.mjs",
-          },
-          { status: 503 },
-        );
+        return authError(request, "no_users", 503);
       }
     }
 
@@ -152,93 +133,37 @@ export async function POST(request: NextRequest) {
           context: { phase: "login_failed" },
         });
       }
-      return NextResponse.json(
-        { error: "Pogrešan email ili lozinka" },
-        { status: 401 },
-      );
+      return authError(request, "invalid_credentials", 401);
+    }
+
+    if (!user.organization_id) {
+      return authError(request, "account_not_linked", 403);
     }
 
     await clearRateLimit("login", rateKey);
 
-    const existingToken = request.cookies.get(SESSION_COOKIE)?.value;
-    const existing = parseSessionToken(existingToken);
-    if (existing?.userId === user.id && existing.sid) {
-      await revokeUserSession(existing.sid);
-    }
-
-    const clientInfo = await getSessionClientInfo(request);
-    const deviceId = readDeviceIdFromRequest(request) ?? generateDeviceId();
-    const trust = await buildTrustForLogin({
-      userId: user.id,
-      deviceId,
-      client: clientInfo,
-    });
-
-    let sessionId: string;
+    let response: NextResponse;
     try {
-      sessionId = await createUserSession(user.id, maxAgeSec, clientInfo, {
-        deviceId,
-        trustScore: trust.trustScore,
-        trustLevel: trust.trustLevel,
-      });
+      response = await establishUserSession(request, user, remember, "password");
     } catch (err) {
+      if (err instanceof OrgSuspendedError) {
+        return authError(request, "org_suspended", 403);
+      }
       if (err instanceof DeviceLimitError) {
-        return NextResponse.json(
-          { error: err.message, code: err.code },
-          { status: 403 },
-        );
+        return authError(request, "device_limit", 403);
+      }
+      if (err instanceof Error && err.message === "session_persist_failed") {
+        return authError(request, "session_persist_failed", 500);
       }
       throw err;
     }
-
-    const sessionOk = await getValidUserSession(sessionId, user.id);
-    if (!sessionOk) {
-      console.error("POST /api/auth/login — session not persisted", {
-        userId: user.id,
-        sidPrefix: sessionId.slice(0, 8),
-      });
-      return NextResponse.json(
-        {
-          error:
-            "Sesija nije sačuvana u bazi (user_sessions.token_hash). Pokrenite scripts/ponudaapp-create-auth-tables.sql na bazi ponudaapp.",
-          code: "session_persist_failed",
-        },
-        { status: 500 },
-      );
-    }
-
-    const token = createSessionToken(
-      {
-        id: user.id,
-        email: user.email,
-        sessionVersion: user.session_version,
-        sessionId,
-      },
-      maxAgeSec,
-    );
-
-    await writeSecurityAuditLog({
-      requestId: meta.requestId,
-      eventType: "auth.login.success",
-      action: "auth.login.success",
-      actorUserId: user.id,
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
-      metadata: {
-        role: user.role,
-        countryCode: clientInfo.geoCountryCode,
-        trustScore: trust.trustScore,
-        trustLevel: trust.trustLevel,
-        deviceId,
-      },
-    });
 
     const loginSuspicious = await evaluateLoginSuspicious({
       requestId: meta.requestId,
       userId: user.id,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
-      countryCode: clientInfo.geoCountryCode,
+      countryCode: (await getSessionClientInfo(request)).geoCountryCode,
     });
     if (loginSuspicious.alert) {
       await recordSuspiciousAlert({
@@ -251,24 +176,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const response = NextResponse.json({
-      ok: true,
-      authEnabled: true,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
-    });
-    response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(maxAgeSec));
-    response.cookies.set(DEVICE_COOKIE, deviceId, deviceCookieOptions());
-    response.headers.set("x-request-id", meta.requestId);
     return response;
   } catch (error) {
     console.error("POST /api/auth/login", error);
     const message = error instanceof Error ? error.message : "";
 
     if (message.includes("JWT_SECRET")) {
-      return NextResponse.json(
-        { error: "JWT_SECRET nije podešen na serveru (Vercel env)." },
-        { status: 500 },
-      );
+      return authError(request, "jwt_missing", 500);
     }
     if (
       message.includes("MYSQL_HOST") ||
@@ -278,27 +192,12 @@ export async function POST(request: NextRequest) {
       message.includes("ENOTFOUND") ||
       message.includes("Access denied")
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "Greška konekcije na bazu. Proverite MYSQL_* env na Vercelu (Project, ne Shared).",
-        },
-        { status: 500 },
-      );
+      return authError(request, "db_connection", 500);
     }
     if (message.includes("users") || message.includes("ER_NO_SUCH_TABLE")) {
-      return NextResponse.json(
-        {
-          error:
-            "Pogrešna baza (verovatno defaultdb umesto ponudaapp). Na Vercel dodaj PONUDEAPP_DATABASE=ponudaapp u Project env.",
-        },
-        { status: 500 },
-      );
+      return authError(request, "wrong_database", 500);
     }
 
-    return NextResponse.json(
-      { error: "Prijava nije uspela" },
-      { status: 500 },
-    );
+    return authError(request, "sign_in_failed", 500);
   }
 }

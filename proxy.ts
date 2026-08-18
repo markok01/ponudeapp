@@ -5,15 +5,20 @@ import {
   isAuthEnabled,
   SESSION_COOKIE,
 } from "@/lib/auth-config";
+import { safeNextPath } from "@/lib/safe-next-path";
+import { APP_HOME_PATH, isPublicPath as isPublicAppPath } from "@/lib/public-paths";
+import { isStaffRole } from "@/lib/roles";
 import { parseSessionToken } from "@/lib/session-token";
 
-const PUBLIC_PATHS = ["/login", "/manifest.webmanifest"];
+const PUBLIC_ASSET_PATHS = ["/manifest.webmanifest"];
 
 function isPublicPath(pathname: string): boolean {
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+  if (isPublicAppPath(pathname)) return true;
+  if (PUBLIC_ASSET_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return true;
   }
   if (pathname.startsWith("/api/auth")) return true;
+  if (pathname === "/api/stripe/webhook") return true;
   if (pathname === "/api/settings") return true;
   if (pathname === "/api/health") return true;
   if (pathname.startsWith("/icons/")) return true;
@@ -24,7 +29,6 @@ function isPublicPath(pathname: string): boolean {
 function denyAccess(request: NextRequest, pathname: string) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const hadSessionCookie = Boolean(token);
-  const jwtStillValid = Boolean(parseSessionToken(token));
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Niste prijavljeni" }, { status: 401 });
@@ -37,7 +41,7 @@ function denyAccess(request: NextRequest, pathname: string) {
     hadSessionCookie ? "session_revoked" : "auth_required",
   );
   const res = NextResponse.redirect(loginUrl);
-  if (hadSessionCookie && !jwtStillValid) {
+  if (hadSessionCookie) {
     res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
   }
   return res;
@@ -82,9 +86,29 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return NextResponse.redirect(new URL(APP_HOME_PATH, request.url));
+  }
+
+  if (pathname === "/" && sessionIsValid(request)) {
+    return NextResponse.redirect(new URL(APP_HOME_PATH, request.url));
+  }
+
   if (isPublicPath(pathname)) {
-    if (pathname === "/login" && sessionIsValid(request)) {
-      return NextResponse.redirect(new URL("/", request.url));
+    if (
+      (pathname === "/login" || pathname === "/register") &&
+      sessionIsValid(request)
+    ) {
+      const me = await fetchAuthMe(request);
+      if (me?.authenticated) {
+        const next = safeNextPath(request.nextUrl.searchParams.get("next"));
+        return NextResponse.redirect(new URL(next, request.url));
+      }
+      if (pathname === "/login") {
+        const res = NextResponse.next();
+        res.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
+        return res;
+      }
     }
     return NextResponse.next();
   }
@@ -95,7 +119,7 @@ export async function proxy(request: NextRequest) {
 
   if (pathname.startsWith("/api/admin")) {
     const me = await fetchAuthMe(request);
-    if (me?.user?.role !== "admin") {
+    if (!isStaffRole(me?.user?.role)) {
       return NextResponse.json({ error: "Nedozvoljeno" }, { status: 403 });
     }
   }

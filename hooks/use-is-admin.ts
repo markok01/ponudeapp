@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 export type AdminAccessState = "loading" | "admin" | "not-admin";
 
-/** Da li je prijavljeni korisnik administrator (samo tada admin UI i API). */
+/** Owner i admin vide staff UI (korisnici, invite, logo). */
 export function useIsAdmin(): AdminAccessState {
   const [state, setState] = useState<AdminAccessState>("loading");
 
@@ -19,7 +19,7 @@ export function useIsAdmin(): AdminAccessState {
           setState("not-admin");
           return;
         }
-        setState(data.user?.role === "admin" ? "admin" : "not-admin");
+        setState(data.user?.role === "admin" || data.user?.role === "owner" ? "admin" : "not-admin");
       })
       .catch(() => {
         if (!cancelled) setState("not-admin");

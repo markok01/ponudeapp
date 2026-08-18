@@ -3,18 +3,21 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import type { Product } from "@/types";
+import { catalogPriceUnit, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import { formatPdvDisplay, formatPriceHoreca } from "@/utils/catalog-display";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 
 type CatalogMobileNamePeekProps = {
   product: Product | null;
   onDismiss?: () => void;
+  currency?: Currency;
 };
 
 /** Puni naziv artikla na uskom ekranu — animirani trak iznad tabele. */
 export function CatalogMobileNamePeek({
   product,
   onDismiss,
+  currency = DEFAULT_CURRENCY,
 }: CatalogMobileNamePeekProps) {
   const t = useTranslations();
 
@@ -43,7 +46,7 @@ export function CatalogMobileNamePeek({
                 <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[0.6875rem] text-muted-foreground">
                   <span>{product.sku}</span>
                   <span className="text-price tabular-nums">
-                    {formatPriceHoreca(product.price)}
+                    {formatPriceHoreca(product.price, catalogPriceUnit(currency))}
                   </span>
                   <span>{formatPdvDisplay(product.pdv_percent)}</span>
                 </p>

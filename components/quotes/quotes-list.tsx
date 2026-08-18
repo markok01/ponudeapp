@@ -43,7 +43,7 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
                 </p>
               </div>
               <p className="shrink-0 text-right text-price-total text-lg tabular-nums">
-                {formatCurrency(quote.total)}
+                {formatCurrency(quote.total, quote.currency)}
               </p>
             </div>
             <div className="mt-4 flex gap-2">
@@ -94,7 +94,7 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
                   {formatDate(quote.created_at)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-price-total">
-                  {formatCurrency(quote.total)}
+                  {formatCurrency(quote.total, quote.currency)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">

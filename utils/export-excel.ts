@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type { QuoteWithItems } from "@/types";
+import { excelCurrencyNumFmt, normalizeCurrency } from "@/lib/currency";
 import { linePriceAfterDiscount, linePriceWithPdv } from "@/utils/quote-calc";
 import { formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
@@ -7,6 +8,7 @@ import { getQuoteLabel } from "@/utils/format-quote-number";
 export async function exportQuoteExcel(quote: QuoteWithItems) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Ponuda");
+  const moneyFmt = excelCurrencyNumFmt(normalizeCurrency(quote.currency));
 
   sheet.mergeCells("A1:H1");
   sheet.getCell("A1").value = "Ponuda";
@@ -68,16 +70,16 @@ export async function exportQuoteExcel(quote: QuoteWithItems) {
         item.discount_percent,
         item.pdv_percent,
       ) * qty;
-    row.getCell(4).numFmt = '#,##0.00 "RSD"';
-    row.getCell(6).numFmt = '#,##0.00 "RSD"';
-    row.getCell(7).numFmt = '#,##0.00 "RSD"';
+    row.getCell(4).numFmt = moneyFmt;
+    row.getCell(6).numFmt = moneyFmt;
+    row.getCell(7).numFmt = moneyFmt;
   });
 
   const totalRow = sheet.getRow(headerRowNum + 1 + quote.items.length);
   totalRow.getCell(6).value = "UKUPNO";
   totalRow.getCell(6).font = { bold: true };
   totalRow.getCell(7).value = quote.total;
-  totalRow.getCell(7).numFmt = '#,##0.00 "RSD"';
+  totalRow.getCell(7).numFmt = moneyFmt;
   totalRow.getCell(7).font = { bold: true };
 
   sheet.columns = [

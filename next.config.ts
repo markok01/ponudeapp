@@ -32,7 +32,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["pdf-parse", "mysql2"],
+  allowedDevOrigins: ["127.0.0.1"],
+  serverExternalPackages: ["pdf-parse", "mysql2", "stripe"],
   async headers() {
     return [
       {

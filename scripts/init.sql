@@ -1,9 +1,31 @@
 CREATE DATABASE IF NOT EXISTS ponudaapp;
 USE ponudaapp;
 
+CREATE TABLE IF NOT EXISTS organizations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  slug VARCHAR(80) NOT NULL,
+  plan VARCHAR(20) NOT NULL DEFAULT 'trial',
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  trial_ends_at DATETIME NULL,
+  stripe_customer_id VARCHAR(255) NULL,
+  stripe_subscription_id VARCHAR(255) NULL,
+  onboarding_completed TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_organizations_slug (slug),
+  UNIQUE KEY uk_org_stripe_customer (stripe_customer_id),
+  UNIQUE KEY uk_org_stripe_subscription (stripe_subscription_id)
+);
+
+INSERT INTO organizations (name, slug, plan, status, trial_ends_at)
+SELECT 'Default', 'default', 'business', 'active', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 365 DAY)
+WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'default');
+
 CREATE TABLE IF NOT EXISTS products (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  sku VARCHAR(100) NOT NULL UNIQUE,
+  organization_id INT NOT NULL,
+  price_list_id INT NOT NULL,
+  sku VARCHAR(100) NOT NULL,
   name VARCHAR(255) NOT NULL,
   category VARCHAR(100) DEFAULT NULL,
   price DECIMAL(10, 2) NOT NULL DEFAULT 0,
@@ -11,17 +33,24 @@ CREATE TABLE IF NOT EXISTS products (
   measure_unit VARCHAR(50) DEFAULT NULL,
   sort_order INT NOT NULL DEFAULT 0,
   active TINYINT(1) NOT NULL DEFAULT 1,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_products_org_list_sku (organization_id, price_list_id, sku),
+  INDEX idx_products_org (organization_id),
+  INDEX idx_products_list (price_list_id)
 );
 
 CREATE TABLE IF NOT EXISTS quotes (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  organization_id INT NOT NULL,
   quote_number VARCHAR(32) NOT NULL,
   customer_name VARCHAR(255) NOT NULL,
   note TEXT NULL,
   valid_until DATE NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'RSD',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  total DECIMAL(12, 2) NOT NULL DEFAULT 0
+  total DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_quotes_org_number (organization_id, quote_number),
+  INDEX idx_quotes_org (organization_id)
 );
 
 CREATE TABLE IF NOT EXISTS quote_items (
@@ -37,7 +66,10 @@ CREATE TABLE IF NOT EXISTS quote_items (
 
 CREATE TABLE IF NOT EXISTS price_lists (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  organization_id INT NOT NULL,
   name VARCHAR(255) NOT NULL,
+  template VARCHAR(20) NOT NULL DEFAULT 'empty',
+  currency CHAR(3) NOT NULL DEFAULT 'RSD',
   file_name VARCHAR(255) NULL,
   active TINYINT(1) NOT NULL DEFAULT 1,
   row_count INT NOT NULL DEFAULT 0,
@@ -46,7 +78,17 @@ CREATE TABLE IF NOT EXISTS price_lists (
   skipped_count INT NOT NULL DEFAULT 0,
   removed_count INT NOT NULL DEFAULT 0,
   snapshot_json LONGTEXT NULL,
-  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  archived_at DATETIME NULL,
+  INDEX idx_price_lists_org (organization_id)
+);
+
+CREATE TABLE IF NOT EXISTS org_settings (
+  organization_id INT NOT NULL,
+  setting_key VARCHAR(64) NOT NULL,
+  setting_value LONGTEXT NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (organization_id, setting_key)
 );
 
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -57,13 +99,44 @@ CREATE TABLE IF NOT EXISTS app_settings (
 
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  organization_id INT NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL DEFAULT '',
   role VARCHAR(20) NOT NULL DEFAULT 'user',
   active TINYINT(1) NOT NULL DEFAULT 1,
   session_version INT NOT NULL DEFAULT 1,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  email_verified_at DATETIME NULL,
+  google_sub VARCHAR(64) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_users_org (organization_id),
+  UNIQUE KEY uk_users_google_sub (google_sub)
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_verify_token_hash (token_hash),
+  INDEX idx_verify_user (user_id)
+);
+
+CREATE TABLE IF NOT EXISTS organization_invites (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  organization_id INT NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL DEFAULT '',
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
+  invited_by INT NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  accepted_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_invite_token_hash (token_hash),
+  INDEX idx_invite_org (organization_id),
+  INDEX idx_invite_email (email)
 );
 
 CREATE TABLE IF NOT EXISTS user_sessions (

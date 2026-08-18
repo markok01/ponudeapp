@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "@/lib/i18n/locale-provider";
+import { isPublicPath } from "@/lib/public-paths";
 import {
   getDeferredInstallPrompt,
   isStandaloneDisplay,
@@ -15,12 +17,14 @@ const DISMISS_KEY = "ponudeapp-pwa-install-dismissed";
 
 export function PwaInstallBanner() {
   const t = useTranslations();
+  const pathname = usePathname();
   const [canInstall, setCanInstall] = useState(false);
   const [visible, setVisible] = useState(false);
   const [isIosHint, setIsIosHint] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isPublicPath(pathname)) return;
     if (sessionStorage.getItem(DISMISS_KEY)) return;
     if (isStandaloneDisplay()) return;
 
@@ -42,7 +46,7 @@ export function PwaInstallBanner() {
     };
     sync();
     return subscribeInstallPrompt(sync);
-  }, []);
+  }, [pathname]);
 
   function dismiss() {
     sessionStorage.setItem(DISMISS_KEY, "1");
@@ -54,7 +58,7 @@ export function PwaInstallBanner() {
     if (outcome !== "unavailable") dismiss();
   }
 
-  if (!visible) return null;
+  if (isPublicPath(pathname) || !visible) return null;
 
   return (
     <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-3 z-40 mx-auto max-w-lg no-print max-lg:bottom-[max(4.75rem,env(safe-area-inset-bottom))]">

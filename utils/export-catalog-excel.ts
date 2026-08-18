@@ -1,14 +1,19 @@
 import ExcelJS from "exceljs";
 import type { Product } from "@/types";
+import { DEFAULT_CURRENCY, excelCurrencyNumFmt, type Currency } from "@/lib/currency";
 import {
   catalogHeaderRowValues,
   catalogRowToExcelValues,
 } from "@/utils/catalog-excel";
 import { groupProductsByCategory } from "@/utils/catalog-display";
 
-export async function buildCatalogExcelBuffer(products: Product[]): Promise<ArrayBuffer> {
+export async function buildCatalogExcelBuffer(
+  products: Product[],
+  currency: Currency = DEFAULT_CURRENCY,
+): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Cenovnik");
+  const moneyFmt = excelCurrencyNumFmt(currency);
 
   const groups = groupProductsByCategory(products);
 
@@ -42,7 +47,7 @@ export async function buildCatalogExcelBuffer(products: Product[]): Promise<Arra
           measure_unit: product.measure_unit,
         }),
       );
-      dataRow.getCell(4).numFmt = '#,##0.00 "RSD"';
+      dataRow.getCell(4).numFmt = moneyFmt;
     }
   }
 
@@ -58,8 +63,12 @@ export async function buildCatalogExcelBuffer(products: Product[]): Promise<Arra
   return workbook.xlsx.writeBuffer();
 }
 
-export async function downloadCatalogExcel(products: Product[], filename = "cenovnik.xlsx") {
-  const buffer = await buildCatalogExcelBuffer(products);
+export async function downloadCatalogExcel(
+  products: Product[],
+  filename = "cenovnik.xlsx",
+  currency: Currency = DEFAULT_CURRENCY,
+) {
+  const buffer = await buildCatalogExcelBuffer(products, currency);
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });

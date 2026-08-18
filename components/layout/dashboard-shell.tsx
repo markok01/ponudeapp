@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { BillingBanner } from "@/components/billing/billing-banner";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/ui/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "@/lib/i18n/locale-provider";
@@ -172,6 +173,7 @@ export function DashboardShell({
           )}
         >
           <div className={cn("min-w-0", isWorkspace && "flex min-h-0 flex-1 flex-col")}>
+            <BillingBanner />
             {children}
           </div>
         </main>

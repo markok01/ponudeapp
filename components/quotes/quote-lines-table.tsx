@@ -15,6 +15,7 @@ import {
   type QuoteColumnKey,
 } from "@/lib/quote-workspace-layout";
 import type { QuoteLineDraft } from "@/types";
+import { type Currency } from "@/lib/currency";
 import { formatCurrency } from "@/utils/format";
 import {
   quoteLineNetAfterDiscount,
@@ -24,6 +25,7 @@ import { handleDiscountInputKeyDown } from "@/utils/quote-line-discount-nav";
 
 interface QuoteLinesTableProps {
   lines: QuoteLineDraft[];
+  currency: Currency;
   activeProductId: number | null;
   discountInputValue: (productId: number, stored: number) => string;
   onDiscountChange: (productId: number, raw: string) => void;
@@ -72,6 +74,7 @@ function QuoteDataCell({
 
 export function QuoteLinesTable({
   lines,
+  currency,
   activeProductId,
   discountInputValue,
   onDiscountChange,
@@ -211,7 +214,7 @@ export function QuoteLinesTable({
                   align="right"
                   className="overflow-hidden text-ellipsis whitespace-nowrap tabular-nums font-semibold text-price"
                 >
-                  {formatCurrency(line.product.price)}
+                  {formatCurrency(line.product.price, currency)}
                 </QuoteDataCell>
                 {!hideQuoteIncVat ? (
                   <QuoteDataCell
@@ -224,6 +227,7 @@ export function QuoteLinesTable({
                         line.product.price,
                         line.product.pdv_percent,
                       ),
+                      currency,
                     )}
                   </QuoteDataCell>
                 ) : null}
@@ -263,7 +267,7 @@ export function QuoteLinesTable({
                   align="right"
                   className="overflow-hidden text-ellipsis whitespace-nowrap tabular-nums font-semibold text-price"
                 >
-                  {formatCurrency(netLineTotal)}
+                  {formatCurrency(netLineTotal, currency)}
                 </QuoteDataCell>
                 <td
                   className="catalog-cell border-b border-border/50 px-0.5 align-middle"

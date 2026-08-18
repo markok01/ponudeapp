@@ -26,6 +26,9 @@ export async function convertPdfOnServer(
   const res = await fetch("/api/pdf-convert", { method: "POST", body: formData });
   const data = await res.json();
   if (!res.ok) {
+    if (res.status === 402 && data.redirect) {
+      window.location.assign(data.redirect);
+    }
     const hint =
       res.status === 503
         ? " Postavite PDF_CONVERTER_URL (+ API_KEY na Vercelu) ili lokalno: npm run pdf-converter:docker. Za cenovnik koristite .xlsx."

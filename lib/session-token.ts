@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { getSessionMaxAgeSec } from "@/lib/auth-config";
 
-const TOKEN_VERSION = 5;
+const TOKEN_VERSION = 6;
+const TOKEN_VERSION_V5 = 5;
 const TOKEN_VERSION_LEGACY = 4;
 
 export interface SessionPayload {
@@ -13,6 +14,8 @@ export interface SessionPayload {
   sid?: string;
   /** Brojač sesije — povećava se pri deaktivaciji */
   sv: number;
+  /** organization_id (JWT v6+); v5 čita se iz users tabele */
+  oid?: number;
   exp: number;
 }
 
@@ -34,6 +37,7 @@ export function createSessionToken(
     email: string;
     sessionVersion?: number;
     sessionId?: string;
+    organizationId?: number;
   },
   maxAgeSec = getSessionMaxAgeSec(true),
 ): string {
@@ -41,6 +45,7 @@ export function createSessionToken(
     v: TOKEN_VERSION,
     userId: user.id,
     ...(user.sessionId ? { sid: user.sessionId } : {}),
+    ...(user.organizationId ? { oid: user.organizationId } : {}),
     sv: user.sessionVersion ?? 1,
     exp: Math.floor(Date.now() / 1000) + maxAgeSec,
   };
@@ -72,7 +77,9 @@ export function parseSessionToken(
     ) as SessionPayload;
 
     const versionOk =
-      payload.v === TOKEN_VERSION || payload.v === TOKEN_VERSION_LEGACY;
+      payload.v === TOKEN_VERSION ||
+      payload.v === TOKEN_VERSION_V5 ||
+      payload.v === TOKEN_VERSION_LEGACY;
     if (!versionOk || !payload.userId || typeof payload.sv !== "number") {
       return null;
     }

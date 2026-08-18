@@ -13,7 +13,11 @@ import {
   newSessionRowId,
 } from "@/lib/security/token-hash";
 import type { TrustLevel } from "@/lib/security/trust-score";
-import type { UserRole } from "@/services/users";
+import {
+  hasUnlimitedDevices,
+  parseUserRole,
+  type UserRole,
+} from "@/lib/roles";
 
 interface UserRoleRow extends RowDataPacket {
   role: string;
@@ -131,7 +135,7 @@ async function isAdminUser(userId: number): Promise<boolean> {
     `SELECT role FROM users WHERE id = ? AND active = 1 LIMIT 1`,
     [userId],
   );
-  return rows[0]?.role === "admin";
+  return hasUnlimitedDevices(rows[0]?.role);
 }
 
 export async function assertCanCreateSession(userId: number): Promise<void> {
@@ -326,7 +330,9 @@ interface SessionDetailRow extends RowDataPacket {
   device_id: string | null;
 }
 
-export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
+export async function listUserLoginSummaries(
+  organizationId: number,
+): Promise<UserLoginSummary[]> {
   await purgeExpiredSessions();
 
   const rows = await query<SessionDetailRow[]>(`
@@ -347,15 +353,15 @@ export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
       s.device_id
     FROM user_sessions s
     INNER JOIN users u ON u.id = s.user_id
-    WHERE s.expires_at >= NOW() AND u.active = 1
+    WHERE s.expires_at >= NOW() AND u.active = 1 AND u.organization_id = ?
     ORDER BY s.last_seen_at DESC
-  `);
+  `, [organizationId]);
 
   const maxRegular = getMaxDevices();
   const byUser = new Map<number, UserLoginSummary>();
 
   for (const row of rows) {
-    const role: UserRole = row.role === "admin" ? "admin" : "user";
+    const role: UserRole = parseUserRole(row.role);
     const trustLevel = row.trust_level as TrustLevel;
     let entry = byUser.get(row.user_id);
     if (!entry) {
@@ -365,7 +371,7 @@ export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
         name: row.name,
         role,
         activeSessionCount: 0,
-        maxDevices: role === "admin" ? null : maxRegular,
+        maxDevices: hasUnlimitedDevices(role) ? null : maxRegular,
         sessions: [],
       };
       byUser.set(row.user_id, entry);
@@ -394,11 +400,14 @@ export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
 
   const allUsers = await query<
     (RowDataPacket & { id: number; email: string; name: string; role: string })[]
-  >(`SELECT id, email, name, role FROM users WHERE active = 1 ORDER BY email ASC`);
+  >(
+    `SELECT id, email, name, role FROM users WHERE active = 1 AND organization_id = ? ORDER BY email ASC`,
+    [organizationId],
+  );
 
   const result: UserLoginSummary[] = [];
   for (const u of allUsers) {
-    const role: UserRole = u.role === "admin" ? "admin" : "user";
+    const role: UserRole = parseUserRole(u.role);
     const existing = byUser.get(u.id);
     if (existing) {
       result.push(existing);
@@ -409,7 +418,7 @@ export async function listUserLoginSummaries(): Promise<UserLoginSummary[]> {
         name: u.name,
         role,
         activeSessionCount: 0,
-        maxDevices: role === "admin" ? null : maxRegular,
+        maxDevices: hasUnlimitedDevices(role) ? null : maxRegular,
         sessions: [],
       });
     }

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMaxLgViewport } from "@/hooks/use-max-lg-viewport";
+import { CurrencySelect } from "@/components/ui/currency-select";
+import { type Currency } from "@/lib/currency";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +17,8 @@ type QuoteWorkspaceMetaProps = {
   customerSuggestions: string[];
   validUntil: string;
   setValidUntil: (v: string) => void;
+  currency: Currency;
+  setCurrency: (v: Currency) => void;
   note: string;
   setNote: (v: string) => void;
   saveLabel: string;
@@ -28,6 +32,8 @@ export function QuoteWorkspaceMeta({
   customerSuggestions,
   validUntil,
   setValidUntil,
+  currency,
+  setCurrency,
   note,
   setNote,
   saveLabel,
@@ -61,7 +67,7 @@ export function QuoteWorkspaceMeta({
       </button>
       <div
         className={cn(
-          "grid gap-2 pt-2 sm:gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto] lg:items-end lg:gap-4 lg:pt-0",
+          "grid gap-2 pt-2 sm:gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.75fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_auto] lg:items-end lg:gap-3 lg:pt-0",
           !open && "hidden lg:grid",
         )}
       >
@@ -92,6 +98,17 @@ export function QuoteWorkspaceMeta({
             type="date"
             value={validUntil}
             onChange={(e) => setValidUntil(e.target.value)}
+            className="h-9"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="quote-currency" className="text-xs">
+            {t("quotes.currency")}
+          </Label>
+          <CurrencySelect
+            id="quote-currency"
+            value={currency}
+            onChange={setCurrency}
             className="h-9"
           />
         </div>

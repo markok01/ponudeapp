@@ -11,8 +11,8 @@ import { assertAdminCreateUserCooldown } from "@/services/user-sessions";
 import { createUser, deactivateUser, deleteUser, listUsers } from "@/services/users";
 
 export async function GET(request: NextRequest) {
-  return withAdminApi(request, async () => {
-    const users = await listUsers();
+  return withAdminApi(request, async ({ session }) => {
+    const users = await listUsers(session.organizationId);
     return NextResponse.json(
       users.map(({ id, email, name, role, active, created_at }) => ({
         id,
@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
         password: body.password,
         name: body.name,
         role: "user",
+        organizationId: session.organizationId,
         strictPassword: true,
       });
 
@@ -135,7 +136,7 @@ export async function DELETE(request: NextRequest) {
 
     try {
       if (permanent) {
-        await deleteUser(id);
+        await deleteUser(id, session.organizationId);
         await writeSecurityAuditLog({
           requestId: meta.requestId,
           eventType: "admin.user.deleted",
@@ -146,7 +147,7 @@ export async function DELETE(request: NextRequest) {
         });
         return NextResponse.json({ message: "Nalog uklonjen" });
       }
-      await deactivateUser(id);
+      await deactivateUser(id, session.organizationId);
       await writeSecurityAuditLog({
         requestId: meta.requestId,
         eventType: "admin.user.deactivated",

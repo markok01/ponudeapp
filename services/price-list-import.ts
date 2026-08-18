@@ -1,17 +1,18 @@
-import { bulkUpsertProductsBySku, replaceProductCatalog } from "@/services/products";
+import { bulkUpsertProductsBySku, getActiveProducts, replaceProductCatalog } from "@/services/products";
 import {
+  assertPriceListOwned,
   captureProductSnapshot,
   computeImportDiff,
-  createPriceListRecord,
+  touchPriceListImport,
 } from "@/services/price-list";
-import { getActiveProducts } from "@/services/products";
 import type { ImportPreviewDiff } from "@/types";
 import type { PriceListRow } from "@/types/price-list";
 import { sanitizePriceListRows } from "@/utils/price-list-columns";
 
 export async function importPriceListRows(
+  organizationId: number,
+  priceListId: number,
   rows: PriceListRow[],
-  listName: string,
   options?: { replaceCatalog?: boolean; fileName?: string },
 ): Promise<{
   inserted: number;
@@ -20,11 +21,13 @@ export async function importPriceListRows(
   removedOld: number;
   priceListId: number;
 }> {
-  let removedOld = 0;
-  const snapshot = await captureProductSnapshot();
+  await assertPriceListOwned(organizationId, priceListId);
 
-  if (options?.replaceCatalog !== false) {
-    const cleared = await replaceProductCatalog();
+  let removedOld = 0;
+  const snapshot = await captureProductSnapshot(organizationId, priceListId);
+
+  if (options?.replaceCatalog) {
+    const cleared = await replaceProductCatalog(organizationId, priceListId);
     removedOld = cleared.removed;
   }
 
@@ -33,8 +36,12 @@ export async function importPriceListRows(
     ...row,
     sort_order: row.sort_order ?? index,
   }));
-  const { inserted, updated } = await bulkUpsertProductsBySku(withOrder);
-  const priceListId = await createPriceListRecord(listName, {
+  const { inserted, updated } = await bulkUpsertProductsBySku(
+    organizationId,
+    priceListId,
+    withOrder,
+  );
+  await touchPriceListImport(organizationId, priceListId, {
     fileName: options?.fileName,
     rowCount: rows.length,
     inserted,
@@ -54,10 +61,16 @@ export async function importPriceListRows(
 }
 
 export async function previewPriceListImport(
+  organizationId: number,
+  priceListId: number,
   rows: PriceListRow[],
 ): Promise<ImportPreviewDiff> {
+  await assertPriceListOwned(organizationId, priceListId);
   const { valid } = sanitizePriceListRows(rows);
-  const current = await getActiveProducts({ includeInactive: false });
+  const current = await getActiveProducts(organizationId, {
+    includeInactive: false,
+    priceListId,
+  });
   const incoming = valid.map((r) => ({
     sku: r.sku,
     name: r.name,

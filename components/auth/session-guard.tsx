@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
+import { isPublicPath } from "@/lib/public-paths";
 
 const CHECK_INTERVAL_MS = 10_000;
 const RETRY_DELAY_MS = 800;
@@ -14,7 +15,10 @@ export function SessionGuard() {
   const failCountRef = useRef(0);
 
   const check = useCallback(async () => {
-    if (pathname === "/login" || pathname.startsWith("/login/")) return;
+    if (isPublicPath(pathname)) {
+      failCountRef.current = 0;
+      return;
+    }
 
     async function fetchMe() {
       const res = await fetch("/api/auth/me", {

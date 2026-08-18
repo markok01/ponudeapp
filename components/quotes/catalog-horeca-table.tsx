@@ -9,6 +9,7 @@ import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-lay
 import { useContainerWidth } from "@/hooks/use-container-width";
 import { useCatalogRowPeek } from "@/hooks/use-catalog-row-peek";
 import type { Product } from "@/types";
+import { catalogPriceUnit, DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 import {
   formatPdvDisplay,
   formatPriceHoreca,
@@ -27,6 +28,7 @@ interface CatalogHorecaTableProps {
   inQuoteIds: Set<number>;
   activeProductId: number | null;
   onSelect: (product: Product) => void;
+  currency?: Currency;
 }
 
 export function CatalogHorecaTable({
@@ -34,6 +36,7 @@ export function CatalogHorecaTable({
   inQuoteIds,
   activeProductId,
   onSelect,
+  currency = DEFAULT_CURRENCY,
 }: CatalogHorecaTableProps) {
   const t = useTranslations();
   const {
@@ -95,6 +98,7 @@ export function CatalogHorecaTable({
       <CatalogMobileNamePeek
         product={isCompactCatalog ? peekDisplay : null}
         onDismiss={() => setPeekProduct(null)}
+        currency={currency}
       />
       {!isCompactCatalog ? (
         <p className="scroll-hint-label shrink-0 px-2 pt-1 max-lg:block lg:hidden">
@@ -137,6 +141,7 @@ export function CatalogHorecaTable({
                 visibleKeys={catalogVisibleKeys}
                 onResizeCol={resizeCatalogCol}
                 focusName={catalogMobileFocusName}
+                currency={currency}
               />
             ))}
           </tbody>
@@ -146,8 +151,15 @@ export function CatalogHorecaTable({
   );
 }
 
-function CatalogPriceCell({ price }: { price: number }) {
+function CatalogPriceCell({
+  price,
+  currency,
+}: {
+  price: number;
+  currency: Currency;
+}) {
   const { isCompactCatalog } = useQuoteWorkspaceLayout();
+  const unit = catalogPriceUnit(currency);
 
   if (isCompactCatalog) {
     return (
@@ -160,7 +172,7 @@ function CatalogPriceCell({ price }: { price: number }) {
           <span className="catalog-price-amount tabular-nums">
             {formatPriceHorecaAmount(price)}
           </span>
-          <span className="catalog-price-unit">din/kom</span>
+          <span className="catalog-price-unit">{unit}</span>
         </span>
       </CatalogDataCell>
     );
@@ -172,7 +184,7 @@ function CatalogPriceCell({ price }: { price: number }) {
       align="right"
       className="catalog-cell-price font-mono tabular-nums text-price"
     >
-      {formatPriceHoreca(price)}
+      {formatPriceHoreca(price, unit)}
     </CatalogDataCell>
   );
 }
@@ -232,6 +244,7 @@ function GroupBlock({
   visibleKeys,
   onResizeCol,
   focusName,
+  currency,
 }: {
   groupLabel: string;
   products: Product[];
@@ -244,6 +257,7 @@ function GroupBlock({
   visibleKeys: CatalogColumnKey[];
   onResizeCol: (key: CatalogColumnKey, delta: number) => void;
   focusName: boolean;
+  currency: Currency;
 }) {
   const t = useTranslations();
   const { catalogCellMetrics } = useQuoteWorkspaceLayout();
@@ -299,6 +313,7 @@ function GroupBlock({
           focusName={focusName}
           onSelect={onSelect}
           onPeek={onPeek}
+          currency={currency}
         />
       ))}
     </>
@@ -315,6 +330,7 @@ function CatalogProductRow({
   focusName,
   onSelect,
   onPeek,
+  currency,
 }: {
   product: Product;
   index: number;
@@ -325,6 +341,7 @@ function CatalogProductRow({
   focusName: boolean;
   onSelect: (product: Product) => void;
   onPeek: (product: Product | null) => void;
+  currency: Currency;
 }) {
   const { onTouchStart, onTouchEnd, onTouchCancel, consumeLongPress } =
     useCatalogRowPeek(() => onPeek(product));
@@ -365,7 +382,7 @@ function CatalogProductRow({
         </CatalogDataCell>
       ) : null}
       {visibleKeys.includes("price") ? (
-        <CatalogPriceCell price={product.price} />
+        <CatalogPriceCell price={product.price} currency={currency} />
       ) : null}
       {visibleKeys.includes("pdv") ? (
         <CatalogDataCell

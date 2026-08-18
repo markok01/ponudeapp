@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Kreira nalog — SAMO vi (vlasnik servera) pokrećete ovu skriptu.
- * Nema registracije u app-u — niko drugi ne može sam da napravi nalog.
+ * Kreira nalog u default organizaciji (CLI). Javna registracija je /register.
  *
  * Primer:
+ *   node scripts/create-user.mjs <email> "<lozinka>" "Ime" owner
  *   node scripts/create-user.mjs <email> "<lozinka>" "Ime" admin
  *   node scripts/create-user.mjs <email> "<lozinka>" "Ime" user
+ *   node scripts/create-user.mjs <email> "<lozinka>" "Ime" superadmin
  */
 import { randomBytes, scrypt } from "crypto";
 import { promisify } from "util";
@@ -47,7 +48,7 @@ async function main() {
   const [emailArg, passwordArg, nameArg, roleArg] = process.argv.slice(2);
   if (!emailArg || !passwordArg) {
     console.error(
-      "Upotreba: node scripts/create-user.mjs <email> <lozinka> [ime] [admin|user]",
+      "Upotreba: node scripts/create-user.mjs <email> <lozinka> [ime] [owner|admin|user|superadmin]",
     );
     process.exit(1);
   }
@@ -55,7 +56,10 @@ async function main() {
   const email = emailArg.trim().toLowerCase();
   const password = passwordArg;
   const name = nameArg?.trim() || email.split("@")[0];
-  const role = roleArg === "admin" ? "admin" : "user";
+  const role =
+    roleArg === "owner" || roleArg === "admin" || roleArg === "superadmin"
+      ? roleArg
+      : "user";
   const maxUsers = Number(process.env.MAX_USERS ?? 3);
 
   if (password.length < 8) {
@@ -76,9 +80,46 @@ async function main() {
   });
 
   try {
-    const [countRows] = await pool.query(`SELECT COUNT(*) AS cnt FROM users`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS organizations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(80) NOT NULL,
+        plan VARCHAR(20) NOT NULL DEFAULT 'trial',
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        trial_ends_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_organizations_slug (slug)
+      )
+    `);
+    await pool.query(`
+      INSERT INTO organizations (name, slug, plan, status, trial_ends_at)
+      SELECT 'Default', 'default', 'business', 'active', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 365 DAY)
+      WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'default')
+    `);
+    const [orgRows] = await pool.query(
+      `SELECT id FROM organizations WHERE slug = 'default' LIMIT 1`,
+    );
+    const organizationId = Number(orgRows[0]?.id);
+    if (!organizationId) {
+      console.error("Default organizacija nije kreirana.");
+      process.exit(1);
+    }
+
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER session_version
+      `);
+    } catch {
+      /* already exists */
+    }
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM users WHERE organization_id = ?`,
+      [organizationId],
+    );
     const total = Number(countRows[0]?.cnt ?? 0);
-    if (total >= maxUsers) {
+    if (role !== "superadmin" && total >= maxUsers) {
       console.error(`Limit naloga (${maxUsers}) je dostignut.`);
       process.exit(1);
     }
@@ -93,12 +134,13 @@ async function main() {
 
     const password_hash = await hashPassword(password);
     await pool.query(
-      `INSERT INTO users (email, password_hash, name, role, active) VALUES (?, ?, ?, ?, 1)`,
-      [email, password_hash, name, role],
+      `INSERT INTO users (organization_id, email, password_hash, name, role, active, email_verified_at)
+       VALUES (?, ?, ?, ?, ?, 1, UTC_TIMESTAMP())`,
+      [organizationId, email, password_hash, name, role],
     );
 
-    console.log(`✓ Nalog kreiran: ${email} (${role})`);
-    console.log(`  Ukupno naloga: ${total + 1} / ${maxUsers}`);
+    console.log(`✓ Nalog kreiran: ${email} (${role}) org=#${organizationId}`);
+    console.log(`  Ukupno naloga u firmi: ${total + 1} / ${maxUsers}`);
   } finally {
     await pool.end();
   }

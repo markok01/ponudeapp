@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isOrgResponse, requireOrganizationId } from "@/lib/org-session";
+import { assertPdfConverterPlan, planGateResponse } from "@/lib/billing";
 import {
   checkPdfConverterHealth,
   isPdfConverterUrlConfigured,
@@ -32,7 +34,17 @@ function syncHorecaResponse(result: {
   });
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const ctx = await requireOrganizationId(request);
+  if (isOrgResponse(ctx)) return ctx;
+
+  let pdfAllowed = true;
+  try {
+    await assertPdfConverterPlan(ctx.organizationId);
+  } catch {
+    pdfAllowed = false;
+  }
+
   const configured = isPdfConverterUrlConfigured();
   const localHorecaSync = !process.env.VERCEL;
   const health = await checkPdfConverterHealth();
@@ -41,14 +53,25 @@ export async function GET() {
       available: false,
       configured,
       localHorecaSync,
+      pdfAllowed,
       error: pdfConverterUnavailableMessage(),
     });
   }
-  return NextResponse.json({ available: true, configured, localHorecaSync, ...health });
+  return NextResponse.json({
+    available: true,
+    configured,
+    localHorecaSync,
+    pdfAllowed,
+    ...health,
+  });
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await requireOrganizationId(request);
+    if (isOrgResponse(ctx)) return ctx;
+    await assertPdfConverterPlan(ctx.organizationId);
+
     const formData = await request.formData();
     const file = formData.get("file");
     const exportMode = (formData.get("exportMode") || "single_sheet") as ExportMode;
@@ -80,6 +103,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: pdfConverterUnavailableMessage() }, { status: 503 });
   } catch (error) {
     console.error("POST /api/pdf-convert", error);
+    const gated = planGateResponse(error);
+    if (gated) return gated;
     if (error instanceof PdfConverterError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

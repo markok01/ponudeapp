@@ -1,9 +1,11 @@
 import type { QuoteLineDraft } from "@/types";
+import type { Currency } from "@/lib/currency";
 
 export interface QuoteBuilderDraft {
   customerName: string;
   note: string;
   validUntil: string;
+  currency?: Currency;
   lines: QuoteLineDraft[];
 }
 

@@ -1,0 +1,22 @@
+---
+description: Stripe billing is implemented but not activated until env + Stripe Dashboard are set up.
+alwaysApply: true
+---
+
+# Stripe — implementirano, još nije aktivirano
+
+Kod za Checkout, Portal, webhook i plan gate već postoji. Ne diraj Google/2FA. Ne commituj Stripe ključeve.
+
+Korisnik će kasnije aktivirati. Checklist:
+
+1. Stripe Dashboard (prvo test mode): Products + 3 recurring cene (starter/pro/business).
+2. `.env.local` (i Vercel Project env za produkciju):
+   - `STRIPE_SECRET_KEY`
+   - `STRIPE_WEBHOOK_SECRET`
+   - `STRIPE_PRICE_STARTER` / `STRIPE_PRICE_PRO` / `STRIPE_PRICE_BUSINESS`
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (dokumentovan; Checkout ide server-side)
+3. Lokalni webhook: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+4. Produkcija: Stripe webhook endpoint `https://<domen>/api/stripe/webhook` za evente:
+   `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`
+5. Customer Portal uključen u Stripe Dashboard (Settings → Billing → Customer portal).
+6. Restart `next dev` / redeploy posle env. Test: `/settings/billing` starter → pro, kartica `4242…`.

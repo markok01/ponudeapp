@@ -8,8 +8,16 @@ import {
   useMemo,
   useState,
 } from "react";
-import { fetchAppSettings, persistAppSettings } from "@/lib/app-settings";
+import {
+  fetchAppSettings,
+  persistAppSettings,
+  saveAppSettingsLocal,
+} from "@/lib/app-settings";
 import { createTranslator, type TranslateFn } from "@/lib/i18n/translate";
+import {
+  readLocaleCookieFromDocument,
+  writeLocaleCookieOnDocument,
+} from "@/lib/i18n/locale-cookie";
 import {
   DEFAULT_LOCALE,
   normalizeLocale,
@@ -30,10 +38,30 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const fromCookie = readLocaleCookieFromDocument();
+    if (fromCookie) setLocaleState(fromCookie);
+
+    let cancelled = false;
     void fetchAppSettings().then((settings) => {
-      setLocaleState(normalizeLocale(settings.locale));
+      if (cancelled) return;
+      const cookie = readLocaleCookieFromDocument();
+      if (cookie) {
+        setLocaleState(cookie);
+        saveAppSettingsLocal({ locale: cookie });
+        if (normalizeLocale(settings.locale) !== cookie) {
+          void persistAppSettings({ locale: cookie });
+        }
+      } else {
+        const next = normalizeLocale(settings.locale);
+        setLocaleState(next);
+        writeLocaleCookieOnDocument(next);
+        saveAppSettingsLocal({ locale: next });
+      }
       setReady(true);
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -44,6 +72,8 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
   const setLocale = useCallback(async (next: Locale) => {
     setLocaleState(next);
+    writeLocaleCookieOnDocument(next);
+    saveAppSettingsLocal({ locale: next });
     await persistAppSettings({ locale: next });
   }, []);
 

@@ -35,6 +35,9 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# Schema dump (scripts/backup-db.mjs)
+/backups/
+
 # Uzorci cenovnika (lokalno)
 HoReCa*.pdf
 HoReCa*.xlsx

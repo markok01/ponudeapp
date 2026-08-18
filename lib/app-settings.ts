@@ -1,3 +1,4 @@
+import { defaultCurrencyForLocale, normalizeCurrency } from "@/lib/currency";
 import { normalizeLocale } from "@/lib/i18n/types";
 import type { AppSettings } from "@/types";
 
@@ -7,6 +8,7 @@ const DEFAULTS: AppSettings = {
   logoDataUrl: null,
   companyName: "",
   locale: "sr",
+  currency: defaultCurrencyForLocale("sr"),
 };
 
 function canUseStorage(): boolean {
@@ -19,12 +21,17 @@ export function getAppSettingsLocal(): AppSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
+    const locale = normalizeLocale(parsed.locale);
     return {
       logoDataUrl:
         typeof parsed.logoDataUrl === "string" ? parsed.logoDataUrl : null,
       companyName:
         typeof parsed.companyName === "string" ? parsed.companyName : "",
-      locale: normalizeLocale(parsed.locale),
+      locale,
+      currency:
+        parsed.currency !== undefined
+          ? normalizeCurrency(parsed.currency)
+          : defaultCurrencyForLocale(locale),
     };
   } catch {
     return { ...DEFAULTS };
@@ -46,7 +53,7 @@ export function clearAppLogoLocal(): AppSettings {
 /** Učitava iz API-ja, kešira u localStorage. */
 export async function fetchAppSettings(): Promise<AppSettings> {
   try {
-    const res = await fetch("/api/settings");
+    const res = await fetch("/api/settings", { credentials: "include" });
     if (!res.ok) return getAppSettingsLocal();
     const data = (await res.json()) as AppSettings;
     saveAppSettingsLocal(data);
@@ -66,6 +73,7 @@ export async function persistAppSettings(
   try {
     const res = await fetch("/api/settings", {
       method: "PUT",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(local),
     });

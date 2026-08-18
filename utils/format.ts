@@ -1,7 +1,18 @@
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("sr-RS", {
+import {
+  type Currency,
+  currencyNumberLocale,
+  DEFAULT_CURRENCY,
+  normalizeCurrency,
+} from "@/lib/currency";
+
+export function formatCurrency(
+  value: number,
+  currency: Currency | string = DEFAULT_CURRENCY,
+): string {
+  const code = normalizeCurrency(currency);
+  return new Intl.NumberFormat(currencyNumberLocale(code), {
     style: "currency",
-    currency: "RSD",
+    currency: code,
     minimumFractionDigits: 2,
   }).format(value);
 }

@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { isAuthEnabled, isAuthRequired } from "@/lib/auth-config";
 import { query, resolveMysqlDatabase, type RowDataPacket } from "@/lib/db";
+import { isResendConfigured } from "@/lib/email";
+import { isStripeConfigured } from "@/lib/stripe";
 import { checkPdfConverterHealth } from "@/services/pdf-converter-client";
+
+function dbErrorCode(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String((error as { code: unknown }).code).trim();
+    if (code) return code;
+  }
+  return "query_failed";
+}
 
 /** Brza dijagnostika deploy-a (bez osetljivih podataka). */
 export async function GET() {
@@ -18,6 +28,8 @@ export async function GET() {
     ponudeappDatabaseOverride: Boolean(process.env.PONUDEAPP_DATABASE?.trim()),
     mysqlUser: Boolean(process.env.MYSQL_USER?.trim()),
     mysqlPassword: Boolean(process.env.MYSQL_PASSWORD?.trim()),
+    stripeConfigured: isStripeConfigured(),
+    resendConfigured: isResendConfigured(),
   };
 
   if (sharedDb && sharedDb !== effectiveDb) {
@@ -31,13 +43,20 @@ export async function GET() {
   }
 
   try {
+    await query<RowDataPacket[]>(`SELECT 1 AS ok`);
+    checks.dbPing = "ok";
+  } catch (error) {
+    checks.dbPing = "error";
+    checks.dbPingCode = dbErrorCode(error);
+  }
+
+  try {
     const rows = await query<RowDataPacket[]>(`SELECT COUNT(*) AS cnt FROM users`);
     checks.db = "ok";
     checks.users = Number(rows[0]?.cnt ?? 0);
   } catch (error) {
     checks.db = "error";
-    checks.dbMessage =
-      error instanceof Error ? error.message.slice(0, 240) : "unknown";
+    checks.dbMessage = dbErrorCode(error);
   }
 
   const pdfUrl = process.env.PDF_CONVERTER_URL?.trim() ?? "";
@@ -55,11 +74,11 @@ export async function GET() {
     }
   } catch (error) {
     checks.pdfConverter = "error";
-    checks.pdfConverterMessage =
-      error instanceof Error ? error.message.slice(0, 200) : "unknown";
+    checks.pdfConverterMessage = dbErrorCode(error);
   }
 
   const ok =
+    checks.dbPing === "ok" &&
     checks.db === "ok" &&
     effectiveDb !== "defaultdb" &&
     (!checks.authRequired || (checks.jwtSecret && Number(checks.users) > 0));

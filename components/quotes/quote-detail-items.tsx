@@ -1,6 +1,7 @@
 "use client";
 
 import type { QuoteItemWithProduct } from "@/types";
+import { type Currency } from "@/lib/currency";
 import { formatCurrency } from "@/utils/format";
 import {
   quoteLineGrossAfterDiscount,
@@ -20,9 +21,10 @@ import { TruncatedProductName } from "@/components/ui/product-name-tooltip";
 
 interface QuoteDetailItemsProps {
   items: QuoteItemWithProduct[];
+  currency: Currency;
 }
 
-export function QuoteDetailItems({ items }: QuoteDetailItemsProps) {
+export function QuoteDetailItems({ items, currency }: QuoteDetailItemsProps) {
   return (
     <>
       <ul className="space-y-3 p-4 md:hidden">
@@ -42,7 +44,7 @@ export function QuoteDetailItems({ items }: QuoteDetailItemsProps) {
               <div>
                 <dt className="text-[10px] uppercase text-muted-foreground">Bez PDV</dt>
                 <dd className="tabular-nums text-price">
-                  {formatCurrency(item.unit_price)}
+                  {formatCurrency(item.unit_price, currency)}
                 </dd>
               </div>
               <div className="text-right">
@@ -50,6 +52,7 @@ export function QuoteDetailItems({ items }: QuoteDetailItemsProps) {
                 <dd className="tabular-nums text-price">
                   {formatCurrency(
                     unitPriceWithPdv(item.unit_price, item.pdv_percent),
+                    currency,
                   )}
                 </dd>
               </div>
@@ -67,6 +70,7 @@ export function QuoteDetailItems({ items }: QuoteDetailItemsProps) {
                       item.pdv_percent,
                       item.qty,
                     ),
+                    currency,
                   )}
                 </dd>
               </div>
@@ -98,11 +102,12 @@ export function QuoteDetailItems({ items }: QuoteDetailItemsProps) {
                 </TableCell>
                 <TableCell className="text-center tabular-nums">{item.qty}</TableCell>
                 <TableCell className="text-right tabular-nums text-price">
-                  {formatCurrency(item.unit_price)}
+                  {formatCurrency(item.unit_price, currency)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-price">
                   {formatCurrency(
                     unitPriceWithPdv(item.unit_price, item.pdv_percent),
+                    currency,
                   )}
                 </TableCell>
                 <TableCell>{item.discount_percent}%</TableCell>
@@ -113,6 +118,7 @@ export function QuoteDetailItems({ items }: QuoteDetailItemsProps) {
                       item.discount_percent,
                       item.qty,
                     ),
+                    currency,
                   )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-price-total">
@@ -123,6 +129,7 @@ export function QuoteDetailItems({ items }: QuoteDetailItemsProps) {
                       item.pdv_percent,
                       item.qty,
                     ),
+                    currency,
                   )}
                 </TableCell>
               </TableRow>

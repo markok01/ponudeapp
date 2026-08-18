@@ -5,6 +5,8 @@ import {
   isAuthEnabled,
   SESSION_COOKIE,
 } from "@/lib/auth-config";
+import { isSuperAdmin } from "@/lib/superadmin";
+import { getOrganizationById } from "@/services/organizations";
 import { getUserById } from "@/services/users";
 import { writeSecurityAuditLog } from "@/lib/security/audit-log";
 import { parseSessionToken } from "@/lib/session-token";
@@ -58,6 +60,7 @@ export async function getSessionUser(
   email: string;
   name: string;
   role: string;
+  organizationId: number;
 } | null> {
   if (!isAuthEnabled()) return null;
 
@@ -88,7 +91,12 @@ export async function getSessionUser(
       return null;
     }
 
-    if (user.role === "admin" && (await isAdminSessionIdleExpired(resolved.rowId))) {
+    if (
+      (user.role === "admin" ||
+        user.role === "owner" ||
+        isSuperAdmin(user)) &&
+      (await isAdminSessionIdleExpired(resolved.rowId))
+    ) {
       await revokeUserSession(payload.sid);
       await writeSecurityAuditLog({
         requestId: "session-idle",
@@ -102,11 +110,18 @@ export async function getSessionUser(
     await touchUserSession(payload.sid);
   }
 
+  if (!user.organization_id) return null;
+
+  const org = await getOrganizationById(user.organization_id);
+  if (!org) return null;
+  if (org.status === "suspended" && !isSuperAdmin(user)) return null;
+
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
+    organizationId: user.organization_id,
   };
 }
 

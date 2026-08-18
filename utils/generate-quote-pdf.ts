@@ -10,6 +10,7 @@ import {
 } from "@/lib/pdf-fonts";
 import { formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
+import { normalizeCurrency } from "@/lib/currency";
 import {
   linePriceAfterDiscount,
   linePriceWithPdv,
@@ -45,11 +46,12 @@ type JsPdfWithTable = jsPDF & {
   lastAutoTable?: { finalY: number };
 };
 
-function formatPdfMoney(value: number): string {
-  return new Intl.NumberFormat("sr-RS", {
+function formatPdfMoney(value: number, currency = "RSD"): string {
+  const amount = new Intl.NumberFormat("sr-RS", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+  return `${amount} ${normalizeCurrency(currency)}`;
 }
 
 function sanitizeFileName(name: string): string {
@@ -151,6 +153,7 @@ function brandHeaderRow(
 function buildTableBody(
   items: QuoteItemWithProduct[],
   showMeasureUnit: boolean,
+  currency: string,
 ): RowInput[] {
   const colCount = showMeasureUnit ? 4 : 3;
   const groups = groupQuoteItemsByBrand(items);
@@ -207,7 +210,7 @@ function buildTableBody(
 
       row.push(
         {
-          content: formatPdfMoney(netWithDiscount),
+          content: formatPdfMoney(netWithDiscount, currency),
           styles: {
             fillColor,
             font: PDF_FONT_BOLD,
@@ -220,7 +223,7 @@ function buildTableBody(
           },
         },
         {
-          content: formatPdfMoney(grossWithDiscount),
+          content: formatPdfMoney(grossWithDiscount, currency),
           styles: {
             fillColor,
             fontSize: 6,
@@ -324,7 +327,12 @@ async function drawHeader(
   return blockY + 16 + customerLines.length * 5 + 6;
 }
 
-function drawTotalsBlock(doc: jsPDF, startY: number, finalTotal: number) {
+function drawTotalsBlock(
+  doc: jsPDF,
+  startY: number,
+  finalTotal: number,
+  currency: string,
+) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const boxWidth = 72;
   const boxHeight = 22;
@@ -351,7 +359,7 @@ function drawTotalsBlock(doc: jsPDF, startY: number, finalTotal: number) {
   setPdfFont(doc, "bold", 12);
   doc.setTextColor(...COLORS.accent);
   doc.text(
-    `${formatPdfMoney(finalTotal)} RSD`,
+    formatPdfMoney(finalTotal, currency),
     valueX,
     y + 10,
     { align: "right" },
@@ -397,7 +405,7 @@ export async function generateQuotePDF(
     margin: { left: PAGE_MARGIN, right: PAGE_MARGIN, bottom: 14 },
     tableWidth: CONTENT_WIDTH,
     head: [head],
-    body: buildTableBody(quote.items, showMeasureUnit),
+    body: buildTableBody(quote.items, showMeasureUnit, quote.currency),
     theme: "plain",
     styles: {
       font: PDF_FONT,
@@ -442,7 +450,7 @@ export async function generateQuotePDF(
 
   if (options.showTotalSummary) {
     const finalY = doc.lastAutoTable?.finalY ?? tableStartY + 40;
-    drawTotalsBlock(doc, finalY, finalTotal);
+    drawTotalsBlock(doc, finalY, finalTotal, quote.currency);
   }
 
   await yieldToMain();

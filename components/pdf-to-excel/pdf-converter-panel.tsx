@@ -109,6 +109,12 @@ export function PdfConverterPanel() {
     try {
       const res = await fetch("/api/pdf-convert", { method: "POST", body: formData });
       const data = await res.json();
+      if (res.status === 402 || res.status === 403) {
+        setConverting(false);
+        toast.error(data.error ?? t("billing.trialExpired"));
+        if (data.redirect) window.location.assign(data.redirect);
+        return;
+      }
       if (!res.ok) throw new Error(data.error);
 
       if (data.sync && data.excelBase64) {

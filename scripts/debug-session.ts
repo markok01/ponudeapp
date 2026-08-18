@@ -41,6 +41,7 @@ async function main() {
       email: user.email,
       sessionVersion: user.session_version,
       sessionId: sid,
+      organizationId: user.organization_id,
     },
     3600,
   );

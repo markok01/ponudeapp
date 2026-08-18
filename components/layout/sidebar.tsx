@@ -19,7 +19,7 @@ import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 const NAV_PATHS = [
-  "/",
+  "/app",
   "/products",
   "/upload",
   "/pdf-to-excel",
@@ -34,6 +34,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const t = useTranslations();
   const [authEnabled, setAuthEnabled] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isStaff, setIsStaff] = useState(true);
 
   const labels = useMemo(
     () => ({
@@ -54,15 +55,17 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   const navItems = useMemo(
     () => [
-      { href: "/", label: labels.home, icon: LayoutDashboard },
+      { href: "/app", label: labels.home, icon: LayoutDashboard },
       { href: "/products", label: labels.products, icon: Package },
-      { href: "/upload", label: labels.upload, icon: Upload },
+      ...(isStaff
+        ? [{ href: "/upload", label: labels.upload, icon: Upload }]
+        : []),
       { href: "/pdf-to-excel", label: labels.pdfToExcel, icon: FileType2 },
       { href: "/quotes", label: labels.quotes, icon: FileSpreadsheet },
       { href: "/quotes/new", label: labels.newQuote, icon: PlusCircle },
       { href: "/settings", label: labels.settings, icon: Settings },
     ],
-    [labels],
+    [labels, isStaff],
   );
 
   useEffect(() => {
@@ -74,6 +77,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           if (cancelled) return;
           setAuthEnabled(Boolean(d.authEnabled));
           if (d.user?.email) setUserEmail(d.user.email);
+          const role = d.user?.role as string | undefined;
+          setIsStaff(!d.authEnabled || role === "admin" || role === "owner");
         })
         .catch(() => {
           if (!cancelled) setAuthEnabled(false);
@@ -110,8 +115,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="flex flex-1 flex-col gap-0.5">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active =
-            href === "/"
-              ? pathname === "/"
+            href === "/app"
+              ? pathname === "/app"
               : pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link

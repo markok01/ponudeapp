@@ -194,9 +194,11 @@ export function AdminSessionsPanel() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {u.email}
-                      {u.role === "admin"
-                        ? ` · ${t("settings.userRoleAdmin")}`
-                        : ` · ${t("settings.userRoleUser")}`}
+                      {u.role === "owner"
+                        ? ` · ${t("settings.userRoleOwner")}`
+                        : u.role === "admin"
+                          ? ` · ${t("settings.userRoleAdmin")}`
+                          : ` · ${t("settings.userRoleUser")}`}
                     </p>
                     <p className="mt-1 text-sm">
                       {t("settings.sessionsCount", {
@@ -265,7 +267,11 @@ export function AdminSessionsPanel() {
               .map((u) => (
                 <li key={u.userId}>
                   {u.email}
-                  {u.role === "admin" ? ` (${t("settings.userRoleAdmin")})` : ""}
+                  {u.role === "owner"
+                    ? ` (${t("settings.userRoleOwner")})`
+                    : u.role === "admin"
+                      ? ` (${t("settings.userRoleAdmin")})`
+                      : ""}
                 </li>
               ))}
           </ul>

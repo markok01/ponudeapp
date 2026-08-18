@@ -7,11 +7,12 @@ import {
   FileSpreadsheet,
   FileUp,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { ImportHistoryPanel } from "@/components/upload/import-history-panel";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,11 +21,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { convertPdfOnServer, downloadExcelBlob } from "@/lib/client-pdf-convert";
 import { useTranslations } from "@/lib/i18n/locale-provider";
-import type { ImportPreviewDiff } from "@/types";
+import type { ImportPreviewDiff, PriceListRecord } from "@/types";
 
 export default function UploadPage() {
   const t = useTranslations();
@@ -35,13 +44,34 @@ export default function UploadPage() {
   const [convertProgress, setConvertProgress] = useState(0);
   const [convertStatus, setConvertStatus] = useState("");
 
+  const [lists, setLists] = useState<PriceListRecord[]>([]);
+  const [priceListId, setPriceListId] = useState<number | null>(null);
+  const [mode, setMode] = useState<"merge" | "replace">("merge");
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importName, setImportName] = useState(t("upload.defaultListName"));
   const [importing, setImporting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [preview, setPreview] = useState<ImportPreviewDiff | null>(null);
   const [pdfServiceOk, setPdfServiceOk] = useState<boolean | null>(null);
   const [pdfLocalHoreca, setPdfLocalHoreca] = useState(false);
+  const [rollbackOpen, setRollbackOpen] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
+
+  const selected = lists.find((l) => l.id === priceListId) ?? null;
+
+  const loadLists = useCallback(async () => {
+    try {
+      const res = await fetch("/api/price-lists", { credentials: "include" });
+      const data = (await res.json()) as PriceListRecord[] | { error?: string };
+      if (!res.ok || !Array.isArray(data)) return;
+      setLists(data);
+      setPriceListId((prev) => {
+        if (prev && data.some((l) => l.id === prev)) return prev;
+        return data.find((l) => l.active)?.id ?? data[0]?.id ?? null;
+      });
+    } catch {
+      toast.error(t("lists.loadFailed"));
+    }
+  }, [t]);
 
   const checkPdfService = useCallback(async () => {
     try {
@@ -57,7 +87,8 @@ export default function UploadPage() {
 
   useEffect(() => {
     void checkPdfService();
-  }, [checkPdfService]);
+    void loadLists();
+  }, [checkPdfService, loadLists]);
 
   async function handleConvert(e: React.FormEvent) {
     e.preventDefault();
@@ -90,14 +121,24 @@ export default function UploadPage() {
     }
   }
 
+  function appendTarget(formData: FormData) {
+    if (priceListId) formData.append("priceListId", String(priceListId));
+    formData.append("mode", mode);
+  }
+
   async function handlePreview() {
     if (!importFile) {
       toast.error(t("upload.selectExcel"));
       return;
     }
+    if (!priceListId) {
+      toast.error(t("upload.noList"));
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", importFile);
+    appendTarget(formData);
 
     setPreviewing(true);
     try {
@@ -119,33 +160,55 @@ export default function UploadPage() {
       toast.error(t("upload.selectExcel"));
       return;
     }
+    if (!priceListId) {
+      toast.error(t("upload.noList"));
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", importFile);
-    formData.append("name", importName);
+    appendTarget(formData);
 
     setImporting(true);
     try {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await res.json();
+      if (res.status === 402) {
+        toast.error(data.error ?? t("billing.trialExpired"));
+        router.push("/settings/billing");
+        return;
+      }
       if (!res.ok) throw new Error(data.error);
 
       const total = data.inserted + data.updated;
       const skipped = data.skipped ?? 0;
-      toast.success(
-        skipped > 0
-          ? t("upload.importSuccessWithSkipped", {
-              total,
-              parsed: data.rowCount ?? total,
-              skipped,
-              removed: data.removedOld ?? 0,
-            })
-          : t("upload.importSuccess", {
-              total,
-              parsed: data.rowCount ?? total,
-              removed: data.removedOld ?? 0,
-            }),
-      );
+      if (skipped > 0) {
+        toast.success(
+          t("upload.importSuccessWithSkipped", {
+            total,
+            parsed: data.rowCount ?? total,
+            skipped,
+            removed: data.removedOld ?? 0,
+          }),
+        );
+      } else if (mode === "replace") {
+        toast.success(
+          t("upload.importSuccessReplace", {
+            total,
+            parsed: data.rowCount ?? total,
+            removed: data.removedOld ?? 0,
+          }),
+        );
+      } else {
+        toast.success(
+          t("upload.importSuccessMerge", {
+            total,
+            inserted: data.inserted ?? 0,
+            updated: data.updated ?? 0,
+            parsed: data.rowCount ?? total,
+          }),
+        );
+      }
       setImportFile(null);
       setPreview(null);
       router.push("/products");
@@ -156,14 +219,32 @@ export default function UploadPage() {
     }
   }
 
+  async function confirmRollback() {
+    if (!priceListId) return;
+    setRollingBack(true);
+    try {
+      const res = await fetch(`/api/price-lists/${priceListId}/rollback`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(data.message ?? t("upload.rollbackSuccess"));
+      setRollbackOpen(false);
+      router.push("/products");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("upload.rollbackFailed"));
+    } finally {
+      setRollingBack(false);
+    }
+  }
+
   return (
     <DashboardShell
       title={t("upload.title")}
       description={t("upload.description")}
     >
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 sm:gap-6">
-        <ImportHistoryPanel />
-
         <Card className="border-primary/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -175,13 +256,77 @@ export default function UploadPage() {
           <CardContent>
             <form onSubmit={handleImport} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="import-name">{t("upload.listName")}</Label>
-                <Input
-                  id="import-name"
-                  value={importName}
-                  onChange={(e) => setImportName(e.target.value)}
-                />
+                <Label>{t("upload.targetList")}</Label>
+                {lists.length > 0 ? (
+                  <Select
+                    value={priceListId ? String(priceListId) : undefined}
+                    onValueChange={(v) => {
+                      setPriceListId(Number(v));
+                      setPreview(null);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("lists.select")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lists.map((list) => (
+                        <SelectItem key={list.id} value={String(list.id)}>
+                          {list.name}
+                          {list.active ? ` · ${t("lists.activeBadge")}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {t("upload.noList")}{" "}
+                    <Link href="/products" className="font-medium text-primary underline-offset-2 hover:underline">
+                      {t("nav.products")}
+                    </Link>
+                  </p>
+                )}
               </div>
+
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">{t("upload.mode")}</legend>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    className="mt-1 accent-primary"
+                    checked={mode === "merge"}
+                    onChange={() => {
+                      setMode("merge");
+                      setPreview(null);
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium">{t("upload.modeMerge")}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {t("upload.modeMergeHint")}
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    className="mt-1 accent-primary"
+                    checked={mode === "replace"}
+                    onChange={() => {
+                      setMode("replace");
+                      setPreview(null);
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium">{t("upload.modeReplace")}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {t("upload.modeReplaceHint")}
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+
               <div className="space-y-2">
                 <Label htmlFor="import-file">{t("upload.excelFile")}</Label>
                 <Input
@@ -195,11 +340,11 @@ export default function UploadPage() {
                 />
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={previewing || !importFile}
+                  disabled={previewing || !importFile || !priceListId}
                   className="w-full sm:w-auto"
                   onClick={() => void handlePreview()}
                 >
@@ -210,7 +355,11 @@ export default function UploadPage() {
                   )}
                   {t("upload.previewDiff")}
                 </Button>
-                <Button type="submit" disabled={importing} className="w-full sm:w-auto">
+                <Button
+                  type="submit"
+                  disabled={importing || !priceListId}
+                  className="w-full sm:w-auto"
+                >
                   {importing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -218,6 +367,17 @@ export default function UploadPage() {
                   )}
                   {t("upload.importDb")}
                 </Button>
+                {selected?.has_snapshot ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full sm:w-auto"
+                    onClick={() => setRollbackOpen(true)}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    {t("upload.rollback")}
+                  </Button>
+                ) : null}
               </div>
 
               {preview ? (
@@ -226,7 +386,9 @@ export default function UploadPage() {
                   <ul className="mt-2 space-y-1 text-muted-foreground">
                     <li>{t("upload.previewAdded", { count: preview.added })}</li>
                     <li>{t("upload.previewUpdated", { count: preview.updated })}</li>
-                    <li>{t("upload.previewRemoved", { count: preview.removed })}</li>
+                    {mode === "replace" ? (
+                      <li>{t("upload.previewRemoved", { count: preview.removed })}</li>
+                    ) : null}
                     <li>{t("upload.previewUnchanged", { count: preview.unchanged })}</li>
                   </ul>
                   {preview.sampleUpdated.length > 0 ? (
@@ -289,6 +451,19 @@ export default function UploadPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={rollbackOpen}
+        onOpenChange={(open) => !open && setRollbackOpen(false)}
+        title={t("upload.rollbackTitle")}
+        description={
+          selected ? t("upload.rollbackBody", { name: selected.name }) : null
+        }
+        confirmLabel={t("upload.rollbackConfirm")}
+        destructive
+        loading={rollingBack}
+        onConfirm={() => void confirmRollback()}
+      />
     </DashboardShell>
   );
 }

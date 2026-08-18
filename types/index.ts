@@ -1,5 +1,10 @@
+import type { Currency } from "@/lib/currency";
+
+export type { Currency };
+
 export interface Product {
   id: number;
+  price_list_id: number;
   sku: string;
   name: string;
   category: string | null;
@@ -17,6 +22,7 @@ export interface Quote {
   customer_name: string;
   note: string | null;
   valid_until: string | null;
+  currency: Currency;
   created_at: string;
   total: number;
 }
@@ -52,6 +58,7 @@ export interface CreateProductInput {
   pdv_percent?: number;
   measure_unit?: string | null;
   active?: boolean;
+  price_list_id?: number;
 }
 
 export interface UpdateProductInput {
@@ -74,6 +81,7 @@ export interface CreateQuoteInput {
   customer_name: string;
   note?: string | null;
   valid_until?: string | null;
+  currency?: Currency;
   items: CreateQuoteItemInput[];
 }
 
@@ -91,13 +99,20 @@ export interface AppSettings {
   logoDataUrl: string | null;
   companyName: string;
   locale: AppLocale;
+  currency: Currency;
 }
+
+export type PriceListTemplate = "empty" | "simple" | "horeca";
 
 export interface PriceListRecord {
   id: number;
   name: string;
+  template: PriceListTemplate;
+  currency: Currency;
   file_name: string | null;
   active: boolean;
+  archived: boolean;
+  product_count: number;
   row_count: number;
   inserted_count: number;
   updated_count: number;

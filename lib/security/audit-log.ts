@@ -8,15 +8,21 @@ export type SecurityAuditEvent =
   | "auth.login.rate_limited"
   | "auth.logout"
   | "auth.session.revoked_idle"
+  | "auth.signup.success"
+  | "auth.signup.rate_limited"
   | "admin.api.forbidden"
   | "admin.api.csrf_blocked"
   | "admin.api.access"
   | "admin.user.created"
   | "admin.user.deactivated"
   | "admin.user.deleted"
+  | "admin.invite.created"
+  | "admin.invite.revoked"
   | "admin.sessions.revoked"
   | "admin.suspicious"
-  | "security.alert";
+  | "security.alert"
+  | "ops.org.suspended"
+  | "ops.org.activated";
 
 const AUDIT_LOCK_NAME = "ponudeapp_audit_chain";
 const GENESIS_HASH =

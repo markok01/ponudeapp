@@ -138,3 +138,11 @@ export function getAdminCreateUserRateLimitConfig(): RateLimitConfig {
     lockoutSec: 3600,
   };
 }
+
+export function getSignupRateLimitConfig(): RateLimitConfig {
+  return {
+    maxAttempts: Number(process.env.SIGNUP_MAX_PER_HOUR ?? 5),
+    windowSec: 3600,
+    lockoutSec: Number(process.env.SIGNUP_LOCKOUT_SEC ?? 3600),
+  };
+}

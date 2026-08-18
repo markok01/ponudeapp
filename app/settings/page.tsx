@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ImagePlus, Loader2, Settings, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, CreditCard, Settings, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { AdminSessionsPanel } from "@/components/settings/admin-sessions-panel";
 import { AdminUsersPanel } from "@/components/settings/admin-users-panel";
 import { DesktopAppCard } from "@/components/settings/desktop-app-card";
+import { DeleteOrganizationCard } from "@/components/settings/delete-organization-card";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { LanguageSettingsCard } from "@/components/settings/language-settings-card";
+import { CurrencySettingsCard } from "@/components/settings/currency-settings-card";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,10 +115,29 @@ export default function SettingsPage() {
   return (
     <DashboardShell title={t("settings.title")} description={t("settings.description")}>
       <div className="mx-auto w-full max-w-xl space-y-4 sm:space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              {t("billing.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-muted-foreground">{t("billing.subtitle")}</p>
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href="/settings/billing">{t("billing.goToBilling")}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <LanguageSettingsCard />
+
+        <CurrencySettingsCard />
 
         <DesktopAppCard />
 
+        {adminAccess === "admin" ? (
+        <>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -195,12 +217,12 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {adminAccess === "admin" ? (
-          <>
             <AdminSessionsPanel />
             <AdminUsersPanel />
-          </>
+        </>
         ) : null}
+
+        <DeleteOrganizationCard />
       </div>
     </DashboardShell>
   );

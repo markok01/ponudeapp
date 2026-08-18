@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isOrgResponse, requireOrganizationId } from "@/lib/org-session";
 import { deleteQuote, getQuoteById, updateQuote } from "@/services/quotes";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
+    const ctx = await requireOrganizationId(request);
+    if (isOrgResponse(ctx)) return ctx;
+
     const { id } = await context.params;
     const quoteId = Number(id);
     if (Number.isNaN(quoteId)) {
       return NextResponse.json({ error: "Neispravan ID" }, { status: 400 });
     }
 
-    const quote = await getQuoteById(quoteId);
+    const quote = await getQuoteById(ctx.organizationId, quoteId);
     if (!quote) {
       return NextResponse.json({ error: "Ponuda nije pronađena" }, { status: 404 });
     }
@@ -28,6 +32,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
+    const ctx = await requireOrganizationId(request);
+    if (isOrgResponse(ctx)) return ctx;
+
     const { id } = await context.params;
     const quoteId = Number(id);
     if (!Number.isFinite(quoteId)) {
@@ -35,10 +42,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const body = await request.json();
-    const quote = await updateQuote(quoteId, {
+    const quote = await updateQuote(ctx.organizationId, quoteId, {
       customer_name: body.customer_name,
       note: body.note,
       valid_until: body.valid_until,
+      currency: body.currency,
       items: body.items ?? [],
     });
 
@@ -52,15 +60,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
+    const ctx = await requireOrganizationId(request);
+    if (isOrgResponse(ctx)) return ctx;
+
     const { id } = await context.params;
     const quoteId = Number(id);
     if (!Number.isFinite(quoteId)) {
       return NextResponse.json({ error: "Neispravan ID" }, { status: 400 });
     }
 
-    await deleteQuote(quoteId);
+    await deleteQuote(ctx.organizationId, quoteId);
     return NextResponse.json({ message: "Ponuda obrisana" });
   } catch (error) {
     console.error("DELETE /api/quotes/[id]", error);

@@ -170,20 +170,20 @@ export default function QuoteDetailPage() {
           <CardTitle>{t("quotes.items")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <QuoteDetailItems items={quote.items} />
+          <QuoteDetailItems items={quote.items} currency={quote.currency} />
           <div className="grid gap-4 border-t border-border bg-accent/25 px-4 py-4 sm:grid-cols-2 sm:px-6 sm:py-5">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {t("quotes.totalExVat")}
               </p>
-              <p className="mt-1 text-price text-xl">{formatCurrency(totals.net)}</p>
+              <p className="mt-1 text-price text-xl">{formatCurrency(totals.net, quote.currency)}</p>
             </div>
             <div className="sm:text-right">
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {t("quotes.totalIncVat")}
               </p>
               <p className="mt-1 text-price-total text-2xl">
-                {formatCurrency(totals.gross)}
+                {formatCurrency(totals.gross, quote.currency)}
               </p>
             </div>
           </div>

@@ -29,8 +29,11 @@ import {
   saveQuoteDraft,
   type QuoteBuilderDraft,
 } from "@/lib/quote-draft";
+import { fetchAppSettings } from "@/lib/app-settings";
+import { DEFAULT_CURRENCY, normalizeCurrency, type Currency } from "@/lib/currency";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import type {
+  PriceListRecord,
   Product,
   QuoteLineDraft,
   QuoteWithItems,
@@ -71,6 +74,7 @@ function quoteToLines(quote: QuoteWithItems, catalog: Product[]): QuoteLineDraft
     const fromCatalog = byId.get(item.product_id);
     const product: Product = fromCatalog ?? {
       id: item.product_id,
+      price_list_id: 0,
       sku: item.sku,
       name: item.name,
       category: item.category,
@@ -105,6 +109,8 @@ export function QuoteBuilder({
   const [customerName, setCustomerName] = useState("");
   const [note, setNote] = useState("");
   const [validUntil, setValidUntil] = useState("");
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY);
+  const [catalogCurrency, setCatalogCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [lines, setLines] = useState<QuoteLineDraft[]>([]);
   const [activeProductId, setActiveProductId] = useState<number | null>(null);
   const [discountDraft, setDiscountDraft] = useState<Record<number, string>>({});
@@ -156,6 +162,21 @@ export function QuoteBuilder({
   }, []);
 
   useEffect(() => {
+    void fetch("/api/price-lists", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((lists: PriceListRecord[]) => {
+        if (!Array.isArray(lists)) return;
+        const active = lists.find((l) => l.active) ?? lists[0];
+        if (active?.currency) {
+          setCatalogCurrency(normalizeCurrency(active.currency));
+        }
+      })
+      .catch(() => {
+        /* optional */
+      });
+  }, []);
+
+  useEffect(() => {
     if (hydratedRef.current) return;
 
     async function hydrate() {
@@ -173,6 +194,7 @@ export function QuoteBuilder({
           );
           setNote(quote.note ?? "");
           setValidUntil(quote.valid_until ?? "");
+          setCurrency(normalizeCurrency(quote.currency));
           setLines(quoteToLines(quote, allProducts));
           hydratedRef.current = true;
           return;
@@ -186,8 +208,30 @@ export function QuoteBuilder({
         setCustomerName(saved.customerName);
         setNote(saved.note);
         setValidUntil(saved.validUntil);
+        if (saved.currency) setCurrency(normalizeCurrency(saved.currency));
         setLines(saved.lines);
         toast.message(t("quotes.draftLoaded"));
+      } else if (mode === "create") {
+        try {
+          const [settings, listsRes] = await Promise.all([
+            fetchAppSettings(),
+            fetch("/api/price-lists", { credentials: "include" }),
+          ]);
+          const lists = listsRes.ok
+            ? ((await listsRes.json()) as PriceListRecord[])
+            : [];
+          const active = Array.isArray(lists)
+            ? lists.find((l) => l.active)
+            : undefined;
+          setCurrency(
+            normalizeCurrency(active?.currency ?? settings.currency),
+          );
+          if (active?.currency) {
+            setCatalogCurrency(normalizeCurrency(active.currency));
+          }
+        } catch {
+          /* keep default */
+        }
       }
       hydratedRef.current = true;
     }
@@ -201,10 +245,11 @@ export function QuoteBuilder({
       customerName,
       note,
       validUntil,
+      currency,
       lines,
     };
     saveQuoteDraft(draftKey, draft);
-  }, [customerName, note, validUntil, lines, draftKey, mode]);
+  }, [customerName, note, validUntil, currency, lines, draftKey, mode]);
 
   const displayProducts = allProducts;
 
@@ -331,6 +376,7 @@ export function QuoteBuilder({
         customer_name: customerName,
         note: note.trim() || null,
         valid_until: validUntil.trim() || null,
+        currency,
         items: lines.map((line) => ({
           product_id: line.product.id,
           qty: 1,
@@ -347,6 +393,11 @@ export function QuoteBuilder({
         },
       );
       const data = await res.json();
+      if (res.status === 402) {
+        toast.error(data.error ?? t("billing.trialExpired"));
+        router.push("/settings/billing");
+        return;
+      }
       if (!res.ok) throw new Error(data.error);
 
       clearQuoteDraft(draftKey);
@@ -373,6 +424,9 @@ export function QuoteBuilder({
         customerSuggestions={customerSuggestions}
         validUntil={validUntil}
         setValidUntil={setValidUntil}
+        currency={currency}
+        setCurrency={setCurrency}
+        catalogCurrency={catalogCurrency}
         note={note}
         setNote={setNote}
         invalidDiscount={invalidDiscount}
@@ -410,6 +464,9 @@ function QuoteBuilderWorkspace({
   customerSuggestions,
   validUntil,
   setValidUntil,
+  currency,
+  setCurrency,
+  catalogCurrency,
   note,
   setNote,
   invalidDiscount,
@@ -442,6 +499,9 @@ function QuoteBuilderWorkspace({
   customerSuggestions: string[];
   validUntil: string;
   setValidUntil: (v: string) => void;
+  currency: Currency;
+  setCurrency: (v: Currency) => void;
+  catalogCurrency: Currency;
   note: string;
   setNote: (v: string) => void;
   invalidDiscount: boolean;
@@ -479,6 +539,8 @@ function QuoteBuilderWorkspace({
         customerSuggestions={customerSuggestions}
         validUntil={validUntil}
         setValidUntil={setValidUntil}
+        currency={currency}
+        setCurrency={setCurrency}
         note={note}
         setNote={setNote}
         saveLabel={saveLabel}
@@ -538,6 +600,7 @@ function QuoteBuilderWorkspace({
                       inQuoteIds={inQuoteIds}
                       activeProductId={activeProductId}
                       onSelect={addProduct}
+                      currency={catalogCurrency}
                     />
                   </div>
                   <div className="hidden shrink-0 border-t border-border/50 pt-1.5 lg:block">
@@ -576,6 +639,7 @@ function QuoteBuilderWorkspace({
                   <div className="quote-lines-cards-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain lg:hidden">
                     <QuoteLineCards
                       lines={lines}
+                      currency={currency}
                       activeProductId={activeProductId}
                       discountInputValue={discountInputValue}
                       onDiscountChange={handleDiscountChange}
@@ -592,6 +656,7 @@ function QuoteBuilderWorkspace({
                   <div className="quote-lines-desktop hidden min-h-0 flex-1 flex-col overflow-hidden lg:flex">
                     <QuoteLinesTable
                       lines={lines}
+                      currency={currency}
                       activeProductId={activeProductId}
                       discountInputValue={discountInputValue}
                       onDiscountChange={handleDiscountChange}
@@ -605,7 +670,7 @@ function QuoteBuilderWorkspace({
                         {t("quotes.totalExVat")}
                       </p>
                       <p className="mt-0.5 text-price text-lg sm:text-xl">
-                        {formatCurrency(totals.net)}
+                        {formatCurrency(totals.net, currency)}
                       </p>
                     </div>
                     <div className="sm:text-right">
@@ -613,7 +678,7 @@ function QuoteBuilderWorkspace({
                         {t("quotes.totalIncVat")}
                       </p>
                       <p className="mt-0.5 text-price-total text-xl sm:text-2xl">
-                        {formatCurrency(totals.gross)}
+                        {formatCurrency(totals.gross, currency)}
                       </p>
                     </div>
                   </div>

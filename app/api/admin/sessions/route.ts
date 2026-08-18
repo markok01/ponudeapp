@@ -6,10 +6,11 @@ import {
   listUserLoginSummaries,
   revokeAllUserSessions,
 } from "@/services/user-sessions";
+import { getUserById } from "@/services/users";
 
 export async function GET(request: NextRequest) {
-  return withAdminApi(request, async () => {
-    const users = await listUserLoginSummaries();
+  return withAdminApi(request, async ({ session }) => {
+    const users = await listUserLoginSummaries(session.organizationId);
     return NextResponse.json({ users });
   });
 }
@@ -22,6 +23,11 @@ export async function POST(request: NextRequest) {
     const userId = Number(body.userId);
     if (!Number.isFinite(userId)) {
       return NextResponse.json({ error: "Neispravan ID korisnika" }, { status: 400 });
+    }
+
+    const target = await getUserById(userId);
+    if (!target || target.organization_id !== session.organizationId) {
+      return NextResponse.json({ error: "Korisnik nije pronađen" }, { status: 404 });
     }
 
     await revokeAllUserSessions(userId);

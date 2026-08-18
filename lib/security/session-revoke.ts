@@ -76,7 +76,7 @@ export async function atomicRevokeAllUserSessions(
 /** Promena uloge + invalidacija svih sesija u jednoj transakciji. */
 export async function atomicInvalidateSessionsOnRoleChange(
   userId: number,
-  newRole: "admin" | "user",
+  newRole: "owner" | "admin" | "user",
 ): Promise<void> {
   await withTransaction(async (conn) => {
     await queryConn<RowDataPacket[]>(

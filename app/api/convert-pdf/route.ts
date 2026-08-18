@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isOrgResponse, requireOrganizationId } from "@/lib/org-session";
+import { assertPdfConverterPlan, planGateResponse } from "@/lib/billing";
 import {
   checkPdfConverterHealth,
   PdfConverterError,
@@ -16,6 +18,10 @@ export const maxDuration = 60;
  */
 export async function POST(request: NextRequest) {
   try {
+    const ctx = await requireOrganizationId(request);
+    if (isOrgResponse(ctx)) return ctx;
+    await assertPdfConverterPlan(ctx.organizationId);
+
     const formData = await request.formData();
     const file = formData.get("file");
     const listName = String(formData.get("name") || "cenovnik");
@@ -56,6 +62,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: pdfConverterUnavailableMessage() }, { status: 503 });
   } catch (error) {
     console.error("POST /api/convert-pdf", error);
+    const gated = planGateResponse(error);
+    if (gated) return gated;
     if (error instanceof PdfConverterError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

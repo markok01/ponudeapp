@@ -1,10 +1,12 @@
 import { formatCurrency } from "@/utils/format";
 import { unitPriceWithPdv } from "@/utils/prices";
 import { cn } from "@/lib/utils";
+import type { Currency } from "@/lib/currency";
 
 interface PricePairProps {
   netPrice: number;
   pdvPercent: number;
+  currency?: Currency;
   className?: string;
   align?: "left" | "right";
 }
@@ -12,6 +14,7 @@ interface PricePairProps {
 export function PricePair({
   netPrice,
   pdvPercent,
+  currency = "RSD",
   className,
   align = "right",
 }: PricePairProps) {
@@ -29,14 +32,14 @@ export function PricePair({
           bez PDV
         </span>
         <br />
-        <span className="text-price text-[13px]">{formatCurrency(netPrice)}</span>
+        <span className="text-price text-[13px]">{formatCurrency(netPrice, currency)}</span>
       </p>
       <p>
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           sa PDV
         </span>
         <br />
-        <span className="text-price-total text-[14px]">{formatCurrency(gross)}</span>
+        <span className="text-price-total text-[14px]">{formatCurrency(gross, currency)}</span>
       </p>
     </div>
   );

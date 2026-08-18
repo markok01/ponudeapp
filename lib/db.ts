@@ -211,9 +211,401 @@ async function ensureSchema(p: Pool): Promise<void> {
           throw error;
         }
       }
+
+      await ensureOrganizationsSchema(p);
     })();
   }
   await schemaReady;
+}
+
+function mysqlCode(error: unknown): string {
+  return error && typeof error === "object" && "code" in error
+    ? String((error as { code: string }).code)
+    : "";
+}
+
+async function runIgnore(
+  p: Pool,
+  sql: string,
+  ignored: string[],
+): Promise<void> {
+  try {
+    await p.query(sql);
+  } catch (error: unknown) {
+    const code = mysqlCode(error);
+    if (!ignored.includes(code)) throw error;
+  }
+}
+
+/** Multi-tenant: organizations + organization_id + unique po firmi. */
+async function ensureOrganizationsSchema(p: Pool): Promise<void> {
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS organizations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      slug VARCHAR(80) NOT NULL,
+      plan VARCHAR(20) NOT NULL DEFAULT 'trial',
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      trial_ends_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_organizations_slug (slug)
+    )
+  `);
+
+  await runIgnore(
+    p,
+    `INSERT INTO organizations (name, slug, plan, status, trial_ends_at)
+     SELECT 'Default', 'default', 'business', 'active', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 365 DAY)
+     WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'default')`,
+    ["ER_DUP_ENTRY"],
+  );
+
+  await runIgnore(
+    p,
+    `ALTER TABLE users ADD COLUMN organization_id INT NULL AFTER id`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `ALTER TABLE products ADD COLUMN organization_id INT NULL AFTER id`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `ALTER TABLE quotes ADD COLUMN organization_id INT NULL AFTER id`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `ALTER TABLE price_lists ADD COLUMN organization_id INT NULL AFTER id`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `ALTER TABLE app_settings ADD COLUMN organization_id INT NULL AFTER setting_key`,
+    ["ER_DUP_FIELDNAME"],
+  );
+
+  await p.query(`
+    UPDATE users SET organization_id = (SELECT id FROM organizations WHERE slug = 'default' LIMIT 1)
+    WHERE organization_id IS NULL
+  `);
+  await p.query(`
+    UPDATE products SET organization_id = (SELECT id FROM organizations WHERE slug = 'default' LIMIT 1)
+    WHERE organization_id IS NULL
+  `);
+  await p.query(`
+    UPDATE quotes SET organization_id = (SELECT id FROM organizations WHERE slug = 'default' LIMIT 1)
+    WHERE organization_id IS NULL
+  `);
+  await p.query(`
+    UPDATE price_lists SET organization_id = (SELECT id FROM organizations WHERE slug = 'default' LIMIT 1)
+    WHERE organization_id IS NULL
+  `);
+  await p.query(`
+    UPDATE app_settings SET organization_id = (SELECT id FROM organizations WHERE slug = 'default' LIMIT 1)
+    WHERE organization_id IS NULL
+  `);
+
+  await runIgnore(p, `ALTER TABLE products DROP INDEX sku`, [
+    "ER_CANT_DROP_FIELD_OR_KEY",
+    "ER_BAD_FIELD_ERROR",
+  ]);
+  await runIgnore(
+    p,
+    `CREATE UNIQUE INDEX uk_products_org_sku ON products (organization_id, sku)`,
+    ["ER_DUP_KEYNAME", "ER_DUP_ENTRY"],
+  );
+  await runIgnore(p, `CREATE INDEX idx_products_org ON products (organization_id)`, [
+    "ER_DUP_KEYNAME",
+  ]);
+
+  await runIgnore(p, `ALTER TABLE quotes DROP INDEX idx_quotes_quote_number`, [
+    "ER_CANT_DROP_FIELD_OR_KEY",
+    "ER_BAD_FIELD_ERROR",
+  ]);
+  await runIgnore(p, `ALTER TABLE quotes DROP INDEX quote_number`, [
+    "ER_CANT_DROP_FIELD_OR_KEY",
+    "ER_BAD_FIELD_ERROR",
+  ]);
+  await runIgnore(
+    p,
+    `CREATE UNIQUE INDEX uk_quotes_org_number ON quotes (organization_id, quote_number)`,
+    ["ER_DUP_KEYNAME", "ER_DUP_ENTRY"],
+  );
+  await runIgnore(p, `CREATE INDEX idx_quotes_org ON quotes (organization_id)`, [
+    "ER_DUP_KEYNAME",
+  ]);
+
+  await runIgnore(p, `CREATE INDEX idx_users_org ON users (organization_id)`, [
+    "ER_DUP_KEYNAME",
+  ]);
+  await runIgnore(
+    p,
+    `CREATE INDEX idx_price_lists_org ON price_lists (organization_id)`,
+    ["ER_DUP_KEYNAME"],
+  );
+
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS org_settings (
+      organization_id INT NOT NULL,
+      setting_key VARCHAR(64) NOT NULL,
+      setting_value LONGTEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (organization_id, setting_key)
+    )
+  `);
+
+  await p.query(`
+    INSERT IGNORE INTO org_settings (organization_id, setting_key, setting_value)
+    SELECT
+      COALESCE(s.organization_id, (SELECT id FROM organizations WHERE slug = 'default' LIMIT 1)),
+      s.setting_key,
+      s.setting_value
+    FROM app_settings s
+  `);
+
+  await ensureSignupSchema(p);
+}
+
+/** Self-service: verifikacija emaila, invite tokeni, owner uloga. */
+async function ensureSignupSchema(p: Pool): Promise<void> {
+  let addedVerifiedCol = false;
+  try {
+    await p.query(
+      `ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER session_version`,
+    );
+    addedVerifiedCol = true;
+  } catch (error: unknown) {
+    if (mysqlCode(error) !== "ER_DUP_FIELDNAME") throw error;
+  }
+
+  if (addedVerifiedCol) {
+    await p.query(
+      `UPDATE users SET email_verified_at = UTC_TIMESTAMP() WHERE email_verified_at IS NULL`,
+    );
+  }
+
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_verify_token_hash (token_hash),
+      INDEX idx_verify_user (user_id),
+      INDEX idx_verify_expires (expires_at)
+    )
+  `);
+
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS organization_invites (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      organization_id INT NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL DEFAULT '',
+      role VARCHAR(20) NOT NULL DEFAULT 'user',
+      invited_by INT NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      accepted_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_invite_token_hash (token_hash),
+      INDEX idx_invite_org (organization_id),
+      INDEX idx_invite_email (email),
+      INDEX idx_invite_expires (expires_at)
+    )
+  `);
+
+  await p.query(`
+    UPDATE users u
+    INNER JOIN (
+      SELECT u2.organization_id, MIN(u2.id) AS fid
+      FROM users u2
+      WHERE u2.organization_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM users o
+          WHERE o.organization_id = u2.organization_id AND o.role = 'owner'
+        )
+      GROUP BY u2.organization_id
+    ) x ON u.id = x.fid
+    SET u.role = 'owner'
+  `);
+
+  await runIgnore(
+    p,
+    `ALTER TABLE users ADD COLUMN google_sub VARCHAR(64) NULL AFTER email_verified_at`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `CREATE UNIQUE INDEX uk_users_google_sub ON users (google_sub)`,
+    ["ER_DUP_KEYNAME", "ER_DUP_ENTRY"],
+  );
+
+  await ensureBillingSchema(p);
+  await ensureOnboardingSchema(p);
+  await ensureCatalogListsSchema(p);
+  await ensureCurrencySchema(p);
+}
+
+async function ensureBillingSchema(p: Pool): Promise<void> {
+  await runIgnore(
+    p,
+    `ALTER TABLE organizations ADD COLUMN stripe_customer_id VARCHAR(255) NULL AFTER trial_ends_at`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `ALTER TABLE organizations ADD COLUMN stripe_subscription_id VARCHAR(255) NULL AFTER stripe_customer_id`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `CREATE UNIQUE INDEX uk_org_stripe_customer ON organizations (stripe_customer_id)`,
+    ["ER_DUP_KEYNAME", "ER_DUP_ENTRY"],
+  );
+  await runIgnore(
+    p,
+    `CREATE UNIQUE INDEX uk_org_stripe_subscription ON organizations (stripe_subscription_id)`,
+    ["ER_DUP_KEYNAME", "ER_DUP_ENTRY"],
+  );
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS stripe_events (
+      id VARCHAR(255) PRIMARY KEY,
+      type VARCHAR(80) NOT NULL,
+      processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+async function ensureOnboardingSchema(p: Pool): Promise<void> {
+  await runIgnore(
+    p,
+    `ALTER TABLE organizations ADD COLUMN onboarding_completed TINYINT(1) NOT NULL DEFAULT 1 AFTER stripe_subscription_id`,
+    ["ER_DUP_FIELDNAME"],
+  );
+}
+
+async function ensureCurrencySchema(p: Pool): Promise<void> {
+  await runIgnore(
+    p,
+    `ALTER TABLE price_lists ADD COLUMN currency CHAR(3) NOT NULL DEFAULT 'RSD' AFTER template`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await runIgnore(
+    p,
+    `ALTER TABLE quotes ADD COLUMN currency CHAR(3) NOT NULL DEFAULT 'RSD' AFTER valid_until`,
+    ["ER_DUP_FIELDNAME"],
+  );
+}
+
+/** Više cenovnika: products.price_list_id + arhiva/template na price_lists. */
+async function ensureCatalogListsSchema(p: Pool): Promise<void> {
+  await runIgnore(
+    p,
+    `ALTER TABLE price_lists ADD COLUMN template VARCHAR(20) NOT NULL DEFAULT 'empty' AFTER name`,
+    ["ER_DUP_FIELDNAME"],
+  );
+
+  let addedArchivedCol = false;
+  try {
+    await p.query(
+      `ALTER TABLE price_lists ADD COLUMN archived_at DATETIME NULL AFTER uploaded_at`,
+    );
+    addedArchivedCol = true;
+  } catch (error: unknown) {
+    if (mysqlCode(error) !== "ER_DUP_FIELDNAME") throw error;
+  }
+
+  await runIgnore(
+    p,
+    `ALTER TABLE products ADD COLUMN price_list_id INT NULL AFTER organization_id`,
+    ["ER_DUP_FIELDNAME"],
+  );
+
+  const [orgRows] = await p.query<RowDataPacket[]>(`SELECT id FROM organizations`);
+
+  for (const org of orgRows) {
+    const orgId = Number(org.id);
+    if (!Number.isFinite(orgId) || orgId <= 0) continue;
+
+    const [activeRows] = await p.query<RowDataPacket[]>(
+      `SELECT id FROM price_lists
+       WHERE organization_id = ? AND active = 1 AND archived_at IS NULL
+       ORDER BY id DESC LIMIT 1`,
+      [orgId],
+    );
+    let keepId = Number(activeRows[0]?.id ?? 0);
+
+    if (!keepId) {
+      const [anyList] = await p.query<RowDataPacket[]>(
+        `SELECT id FROM price_lists
+         WHERE organization_id = ?
+         ORDER BY (archived_at IS NULL) DESC, uploaded_at DESC, id DESC
+         LIMIT 1`,
+        [orgId],
+      );
+      keepId = Number(anyList[0]?.id ?? 0);
+    }
+
+    if (!keepId) {
+      const [orphanRows] = await p.query<RowDataPacket[]>(
+        `SELECT COUNT(*) AS cnt FROM products
+         WHERE organization_id = ? AND (price_list_id IS NULL OR price_list_id = 0)`,
+        [orgId],
+      );
+      if (Number(orphanRows[0]?.cnt ?? 0) === 0) continue;
+
+      const [ins] = await p.query<ResultSetHeader>(
+        `INSERT INTO price_lists (organization_id, name, template, active)
+         VALUES (?, 'Cenovnik', 'empty', 1)`,
+        [orgId],
+      );
+      keepId = Number(ins.insertId);
+    }
+
+    if (addedArchivedCol) {
+      await p.query(
+        `UPDATE price_lists
+         SET archived_at = UTC_TIMESTAMP(), active = 0
+         WHERE organization_id = ? AND id != ? AND archived_at IS NULL`,
+        [orgId, keepId],
+      );
+      await p.query(
+        `UPDATE price_lists SET active = 1, archived_at = NULL WHERE id = ?`,
+        [keepId],
+      );
+    } else {
+      await p.query(
+        `UPDATE price_lists SET active = 1, archived_at = NULL WHERE id = ? AND active = 0`,
+        [keepId],
+      );
+    }
+
+    await p.query(
+      `UPDATE products
+       SET price_list_id = ?
+       WHERE organization_id = ? AND (price_list_id IS NULL OR price_list_id = 0)`,
+      [keepId, orgId],
+    );
+  }
+
+  await runIgnore(p, `ALTER TABLE products DROP INDEX uk_products_org_sku`, [
+    "ER_CANT_DROP_FIELD_OR_KEY",
+    "ER_BAD_FIELD_ERROR",
+  ]);
+  await runIgnore(
+    p,
+    `CREATE UNIQUE INDEX uk_products_org_list_sku ON products (organization_id, price_list_id, sku)`,
+    ["ER_DUP_KEYNAME", "ER_DUP_ENTRY"],
+  );
+  await runIgnore(
+    p,
+    `CREATE INDEX idx_products_list ON products (price_list_id)`,
+    ["ER_DUP_KEYNAME"],
+  );
 }
 
 function env(key: string): string | undefined {
