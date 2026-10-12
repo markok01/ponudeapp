@@ -7,17 +7,20 @@ import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { PwaInstallBanner } from "@/components/pwa/install-banner";
 import { InstallPromptCapture } from "@/components/pwa/install-prompt-capture";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { CatalogThemeProvider } from "@/components/theme/catalog-theme-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <LocaleProvider>
-        <InstallPromptCapture />
-        <SessionGuard />
-        <OnboardingGuard />
-        {children}
-        <PwaInstallBanner />
-        <AppToaster />
+        <CatalogThemeProvider>
+          <InstallPromptCapture />
+          <SessionGuard />
+          <OnboardingGuard />
+          {children}
+          <PwaInstallBanner />
+          <AppToaster />
+        </CatalogThemeProvider>
       </LocaleProvider>
     </ThemeProvider>
   );

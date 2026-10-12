@@ -37,8 +37,8 @@ export const viewport: Viewport = {
   /** Tastatura na mobilnom smanjuje layout umesto da prekrije sadržaj */
   interactiveWidget: "resizes-content",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f8fc" },
-    { media: "(prefers-color-scheme: dark)", color: "#1a1d26" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f5f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1115" },
   ],
 };
 

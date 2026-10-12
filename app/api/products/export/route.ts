@@ -5,6 +5,8 @@ import { getActivePriceList, getPriceListById } from "@/services/price-list";
 import { sortProductsCatalogOrder } from "@/utils/catalog-display";
 import { buildCatalogExcelBuffer } from "@/utils/export-catalog-excel";
 import { DEFAULT_CURRENCY, normalizeCurrency } from "@/lib/currency";
+import { getAppSettingsFromDb } from "@/services/app-settings";
+import { resolveCatalogThemeFromSettings } from "@/lib/catalog-theme";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +25,12 @@ export async function GET(request: NextRequest) {
     const list = resolvedListId
       ? await getPriceListById(ctx.organizationId, resolvedListId)
       : await getActivePriceList(ctx.organizationId);
+    const settings = await getAppSettingsFromDb(ctx.organizationId);
+    const catalogColors = resolveCatalogThemeFromSettings(settings);
     const buffer = await buildCatalogExcelBuffer(
       products,
       list ? normalizeCurrency(list.currency) : DEFAULT_CURRENCY,
+      catalogColors,
     );
     return new NextResponse(buffer, {
       headers: {

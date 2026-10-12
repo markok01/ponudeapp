@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
+import { getAppUrl } from "@/lib/app-url";
 import { safeNextPath } from "@/lib/safe-next-path";
 
 export const GOOGLE_OAUTH_STATE_COOKIE = "ponudeapp_oauth_g";
@@ -25,8 +26,12 @@ function oauthSecret(): string {
   return secret;
 }
 
-export function googleRedirectUri(request: NextRequest): string {
-  return `${request.nextUrl.origin}${GOOGLE_CALLBACK_PATH}`;
+/**
+ * Redirect URI mora biti stabilan (produkcijski domen u NEXT_PUBLIC_APP_URL).
+ * Vercel preview URL se menja pri svakom deployu — Google ga ne prihvata kao wildcard.
+ */
+export function googleRedirectUri(request?: NextRequest): string {
+  return `${getAppUrl(request)}${GOOGLE_CALLBACK_PATH}`;
 }
 
 export function createGoogleOAuthState(input: {

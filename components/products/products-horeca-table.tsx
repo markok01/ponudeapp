@@ -140,7 +140,8 @@ export function ProductsHorecaTable({
   products,
   onProductUpdated,
   onProductDeleted,
-}: ProductsHorecaTableProps) {
+  readOnly = false,
+}: ProductsHorecaTableProps & { readOnly?: boolean }) {
   const t = useTranslations();
   const {
     layout,
@@ -395,6 +396,7 @@ export function ProductsHorecaTable({
                 deletingId={deletingId}
                 onRowDraftChange={updateRowDraft}
                 onBrandDraftChange={updateBrandDraft}
+                readOnly={readOnly}
                 onDelete={requestDeleteProduct}
                 resizeCol={resizeCol}
                 rowHeightPx={layout.rowHeightPx}
@@ -413,6 +415,7 @@ export function ProductsHorecaTable({
         />
       </div>
 
+      {readOnly ? null : (
       <div
         className={cn(
           "flex flex-col gap-3 rounded-[var(--radius)] border px-3 py-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4",
@@ -464,6 +467,7 @@ export function ProductsHorecaTable({
           </Button>
         </div>
       </div>
+      )}
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}
@@ -506,6 +510,7 @@ function EditableGroupBlock({
   dirtyRowIds,
   isBrandDirty,
   deletingId,
+  readOnly = false,
   onRowDraftChange,
   onBrandDraftChange,
   onDelete,
@@ -523,6 +528,7 @@ function EditableGroupBlock({
   dirtyRowIds: Set<number>;
   isBrandDirty: boolean;
   deletingId: number | null;
+  readOnly?: boolean;
   onRowDraftChange: (id: number, patch: Partial<RowDraft>) => void;
   onBrandDraftChange: (key: string, value: string) => void;
   onDelete: (product: Product) => void;
@@ -556,6 +562,7 @@ function EditableGroupBlock({
               fontSize: nameMetrics.fontPx,
             }}
             value={brandDraft}
+            readOnly={readOnly}
             placeholder={t("products.brandCategory")}
             onChange={(e) => onBrandDraftChange(gKey, e.target.value)}
             onClick={(e) => e.stopPropagation()}
@@ -626,6 +633,7 @@ function EditableGroupBlock({
           isDeleting={deletingId === product.id}
           rowHeightPx={rowHeightPx}
           cellMetrics={cellMetrics}
+          readOnly={readOnly}
           onDraftChange={(patch) => onRowDraftChange(product.id, patch)}
           onDelete={() => onDelete(product)}
           t={t}
@@ -675,6 +683,7 @@ function EditableProductRow({
   isDeleting,
   rowHeightPx,
   cellMetrics,
+  readOnly = false,
   onDraftChange,
   onDelete,
   t,
@@ -685,6 +694,7 @@ function EditableProductRow({
   isDirty: boolean;
   isDeleting: boolean;
   rowHeightPx: number;
+  readOnly?: boolean;
   cellMetrics: (key: ProductsCatalogColumnKey) => import("@/lib/catalog-table-layout").CellMetrics;
   onDraftChange: (patch: Partial<RowDraft>) => void;
   onDelete: () => void;
@@ -717,6 +727,7 @@ function EditableProductRow({
         <Input
           className={cn(inputClass, "font-mono")}
           style={inputStyle("sku")}
+          readOnly={readOnly}
           value={draft.sku}
           onChange={(e) => onDraftChange({ sku: e.target.value })}
           onClick={(e) => e.stopPropagation()}
@@ -727,7 +738,8 @@ function EditableProductRow({
           <Input
             className={cn(inputClass, "truncate")}
             style={inputStyle("name")}
-            value={draft.name}
+            readOnly={readOnly}
+          value={draft.name}
             onChange={(e) => onDraftChange({ name: e.target.value })}
             onClick={(e) => e.stopPropagation()}
           />
@@ -751,6 +763,7 @@ function EditableProductRow({
           className={cn(inputClass, "text-right font-mono tabular-nums")}
           style={inputStyle("price")}
           inputMode="decimal"
+          readOnly={readOnly}
           value={draft.price}
           onChange={(e) => onDraftChange({ price: e.target.value })}
           onClick={(e) => e.stopPropagation()}
@@ -761,12 +774,14 @@ function EditableProductRow({
           className={cn(inputClass, "text-center font-mono")}
           style={inputStyle("pdv")}
           inputMode="decimal"
+          readOnly={readOnly}
           value={draft.pdv}
           onChange={(e) => onDraftChange({ pdv: e.target.value })}
           onClick={(e) => e.stopPropagation()}
         />
       </ProductsDataCell>
       <ProductsDataCell colKey="actions" className="catalog-col-actions text-center">
+        {readOnly ? null : (
         <Button
           type="button"
           variant="ghost"
@@ -783,6 +798,7 @@ function EditableProductRow({
             <Trash2 className="h-4 w-4" />
           )}
         </Button>
+        )}
       </ProductsDataCell>
     </tr>
   );

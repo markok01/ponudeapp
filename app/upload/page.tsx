@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -245,11 +246,14 @@ export default function UploadPage() {
       description={t("upload.description")}
     >
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 sm:gap-6">
-        <Card className="border-primary/20">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
-              {t("upload.excelTitle")}
+              <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+              <span className="inline-flex items-center gap-1.5">
+                {t("upload.excelTitle")}
+                <InfoHint text={t("help.uploadMerge")} label={t("help.aria")} />
+              </span>
             </CardTitle>
             <CardDescription>{t("upload.excelDesc")}</CardDescription>
           </CardHeader>

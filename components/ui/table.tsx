@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto rounded-[var(--radius-md)]">
+    <div className="relative w-full overflow-auto">
       <table
         ref={ref}
         className={cn("w-full caption-bottom text-sm", className)}
@@ -20,7 +20,7 @@ const TableHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <thead
     ref={ref}
-    className={cn("sticky top-0 z-10 bg-muted/95 backdrop-blur-sm [&_tr]:border-b", className)}
+    className={cn("sticky top-0 z-10 bg-muted/90 [&_tr]:border-b", className)}
     {...props}
   />
 ));
@@ -39,8 +39,8 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
     <tr
       ref={ref}
       className={cn(
-        "border-b border-border/60 transition-colors duration-150",
-        "hover:bg-accent/40 data-[state=selected]:bg-accent/60",
+        "border-b border-border/70 transition-colors duration-150",
+        "hover:bg-muted/50 data-[state=selected]:bg-muted/70",
         className,
       )}
       {...props}
@@ -56,7 +56,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+      "h-11 px-4 text-left align-middle text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground",
       className,
     )}
     {...props}

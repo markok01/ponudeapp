@@ -28,6 +28,9 @@ export function PublicFooter() {
           <Link href="/legal/privacy" className="text-muted-foreground hover:text-foreground">
             {t("legal.privacyNav")}
           </Link>
+          <Link href="/legal/dpa" className="text-muted-foreground hover:text-foreground">
+            {t("legal.dpaNav")}
+          </Link>
         </nav>
       </div>
     </footer>

@@ -4,6 +4,7 @@ import { assertBillingAllowsWrites, planGateResponse } from "@/lib/billing";
 import { importPriceListRows } from "@/services/price-list-import";
 import { ensureDefaultPriceList } from "@/services/price-list";
 import { parsePriceListFile } from "@/utils/price-list-parse";
+import { logOrgActivity } from "@/services/org-activity";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,22 @@ export async function POST(request: NextRequest) {
     const stats = await importPriceListRows(ctx.organizationId, listId, rows, {
       fileName: file.name,
       replaceCatalog: mode === "replace",
+    });
+
+    await logOrgActivity({
+      organizationId: ctx.organizationId,
+      actorUserId: ctx.user?.id,
+      actorEmail: ctx.user?.email,
+      action: "price_list.imported",
+      entityType: "price_list",
+      entityId: listId,
+      summary: `Uvoz cenovnika „${file.name}” (${stats.inserted} novo, ${stats.updated} ažurirano)`,
+      metadata: {
+        fileName: file.name,
+        inserted: stats.inserted,
+        updated: stats.updated,
+        mode: mode === "replace" ? "replace" : "merge",
+      },
     });
 
     return NextResponse.json({

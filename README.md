@@ -78,15 +78,35 @@ Kratak runbook pre plaćajućih klijenata.
 
 1. Production branch → Vercel Project (ne Shared env za Budget ako delite MYSQL_*).
 2. Posle izmene env: **Redeploy**.
-3. Provera: `GET https://<domen>/api/health` — `ok: true`, `dbPing: ok`. Stripe/Resend su boolean (`stripeConfigured`, `resendConfigured`) bez tajni.
+3. Provera: `GET https://<domen>/api/health` — `ok: true`, `dbPing: ok`. Boolean polja bez tajni: Stripe, Resend, `healthAlertsConfigured`. `googleRedirectUri` mora biti stabilan domen iz `NEXT_PUBLIC_APP_URL`.
 
 ### Env (kompletna lista u `.env.example`)
 
-Obavezno na Vercelu (Production): `MYSQL_*` (ili `PONUDEAPP_DATABASE` ako Shared `MYSQL_DATABASE=defaultdb`), `JWT_SECRET` (**jedan**, bez `AUTH_SECRET`), `AUTH_REQUIRED=true`, `NEXT_PUBLIC_APP_URL=https://<domen>`.
+Obavezno na Vercelu (Production): `MYSQL_*` (ili `PONUDEAPP_DATABASE` ako Shared `MYSQL_DATABASE=defaultdb`), `JWT_SECRET` (**jedan**, bez `AUTH_SECRET`), `AUTH_REQUIRED=true`, `NEXT_PUBLIC_APP_URL=https://<stabilan-domen>` (ne preview URL).
 
-Po potrebi: Stripe, Resend, `PDF_CONVERTER_*`, `SUPERADMIN_EMAILS`.
+Po potrebi: Stripe, Resend, `PDF_CONVERTER_*`, `SUPERADMIN_EMAILS`, `CRON_SECRET`, `HEALTH_ALERT_EMAIL`, `SLACK_WEBHOOK_URL`.
 
 `.env.local` je u `.gitignore` — ne commituj ključeve.
+
+### PDF converter (Render → Vercel)
+
+1. Render: Docker iz `backend/` (npr. `https://pdfconverter-hidv.onrender.com`), Live
+2. Render Environment: `API_KEY` (isti string kao na Vercelu, ili oba prazna)
+3. Vercel Project env: `PDF_CONVERTER_URL`, opciono `PDF_CONVERTER_API_KEY` → **Redeploy**
+4. Provera: `/api/health` → `pdfConverter: ok` (Free tier: prvi hit može biti spor dok se instanca budi)
+
+### Google OAuth (stabilan domen)
+
+1. `NEXT_PUBLIC_APP_URL` = produkcija (custom domen ili stabilan production host)
+2. Google Console: redirect samo `https://<taj-domen>/api/auth/google/callback` (+ localhost za dev)
+3. Kod koristi env URL za `redirect_uri` — preview hash URL se više ne šalje Google-u
+
+### Health alarm (baza / PDF converter)
+
+1. Vercel: `CRON_SECRET`, `HEALTH_ALERT_EMAIL` i/ili `SLACK_WEBHOOK_URL` (+ Resend za mail)
+2. Cron u `vercel.json`: svakih sat vremena `/api/cron/health` (Bearer `CRON_SECRET`; na Pro planu možeš `*/5 * * * *`)
+3. Ručno: `curl -H "Authorization: Bearer $CRON_SECRET" https://<domen>/api/cron/health`
+4. Alarm posle 2 uzastopna pada; cooldown 30 min; oporavak šalje „ponovo radi“
 
 ### Stripe webhook
 

@@ -25,6 +25,7 @@ import { useTranslations } from "@/lib/i18n/locale-provider";
 import { fetchAppSettings } from "@/lib/app-settings";
 import { defaultCurrencyForLocale, normalizeCurrency, type Currency } from "@/lib/currency";
 import { CurrencySelect } from "@/components/ui/currency-select";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { PriceListRecord, PriceListTemplate } from "@/types";
 
 export function PriceListSwitcher({
@@ -32,11 +33,13 @@ export function PriceListSwitcher({
   selectedId,
   onSelect,
   onChanged,
+  canManage = true,
 }: {
   lists: PriceListRecord[];
   selectedId: number | null;
   onSelect: (id: number) => void;
   onChanged: (selectId?: number) => void;
+  canManage?: boolean;
 }) {
   const t = useTranslations();
   const [createOpen, setCreateOpen] = useState(false);
@@ -152,6 +155,10 @@ export function PriceListSwitcher({
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:mr-1">
+        {t("lists.select")}
+        <InfoHint text={t("help.priceList")} label={t("help.aria")} />
+      </span>
       {lists.length > 0 ? (
       <Select
         value={selectedId ? String(selectedId) : undefined}
@@ -172,7 +179,7 @@ export function PriceListSwitcher({
         </SelectContent>
       </Select>
       ) : null}
-      <div className="flex flex-wrap gap-2">
+      {canManage ? <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" variant="outline" onClick={() => {
           setName("");
           setTemplate("horeca");
@@ -215,7 +222,7 @@ export function PriceListSwitcher({
           <Archive className="h-4 w-4" />
           {t("lists.archive")}
         </Button>
-      </div>
+      </div> : null}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>

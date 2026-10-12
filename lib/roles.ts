@@ -32,6 +32,15 @@ export function hasUnlimitedDevices(role: string | null | undefined): boolean {
   return isStaffRole(role);
 }
 
+/** Zaključavanje ponude: owner/admin, ili član ako firma to dozvoli. Auth isključen → da. */
+export function memberMayLockQuotes(
+  role: string | null | undefined,
+  membersCanLockQuotes: boolean,
+): boolean {
+  if (!role || isStaffRole(role)) return true;
+  return membersCanLockQuotes;
+}
+
 export function isInviteRole(value: unknown): value is "admin" | "user" {
   return value === "admin" || value === "user";
 }

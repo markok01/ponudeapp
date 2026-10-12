@@ -4,6 +4,9 @@ import { query, resolveMysqlDatabase, type RowDataPacket } from "@/lib/db";
 import { isResendConfigured } from "@/lib/email";
 import { isStripeConfigured } from "@/lib/stripe";
 import { checkPdfConverterHealth } from "@/services/pdf-converter-client";
+import { healthAlertsConfigured } from "@/services/health-watchdog";
+import { getAppUrl } from "@/lib/app-url";
+import { googleRedirectUri } from "@/lib/google-oauth";
 
 function dbErrorCode(error: unknown): string {
   if (error && typeof error === "object" && "code" in error) {
@@ -30,6 +33,9 @@ export async function GET() {
     mysqlPassword: Boolean(process.env.MYSQL_PASSWORD?.trim()),
     stripeConfigured: isStripeConfigured(),
     resendConfigured: isResendConfigured(),
+    healthAlertsConfigured: healthAlertsConfigured(),
+    appUrl: getAppUrl().replace(/^https?:\/\//, ""),
+    googleRedirectUri: googleRedirectUri().replace(/^https?:\/\//, ""),
   };
 
   if (sharedDb && sharedDb !== effectiveDb) {

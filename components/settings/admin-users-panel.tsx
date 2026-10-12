@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -172,7 +173,10 @@ export function AdminUsersPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Users className="h-4 w-4" />
-          {t("settings.usersTitle")}
+          <span className="inline-flex items-center gap-1.5">
+            {t("settings.usersTitle")}
+            <InfoHint text={t("help.members")} label={t("help.aria")} />
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">

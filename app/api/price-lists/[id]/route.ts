@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isOrgResponse, requireOrganizationId } from "@/lib/org-session";
+import { isOrgResponse, requireOrganizationId, requireStaffOrganization } from "@/lib/org-session";
 import {
   archivePriceList,
   getPriceListById,
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const ctx = await requireOrganizationId(request);
+    const ctx = await requireStaffOrganization(request);
     if (isOrgResponse(ctx)) return ctx;
     const { id } = await context.params;
     const listId = Number(id);

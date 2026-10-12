@@ -1,5 +1,6 @@
 import type { QuoteWithItems } from "@/types";
 import { getAppSettings } from "@/lib/app-settings";
+import { resolveCatalogThemeFromSettings } from "@/lib/catalog-theme";
 import {
   generateQuotePDF,
   type GenerateQuotePdfOptions,
@@ -15,5 +16,11 @@ export function exportQuotePdf(quote: QuoteWithItems) {
     includeLogo: Boolean(settings.logoDataUrl),
     logoBase64: settings.logoDataUrl,
     companyName: settings.companyName || undefined,
+    companyTaxId: settings.taxId || undefined,
+    companyAddress: settings.address || undefined,
+    companyPhone: settings.phone || undefined,
+    companyBankAccount: settings.bankAccount || undefined,
+    stampBase64: settings.stampDataUrl,
+    catalogColors: resolveCatalogThemeFromSettings(settings),
   });
 }

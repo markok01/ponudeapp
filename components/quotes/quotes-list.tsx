@@ -15,6 +15,8 @@ import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { Quote } from "@/types";
 import { formatCurrency, formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
+import { QuoteStatusBadge } from "@/components/quotes/quote-status-badge";
+import { InfoHint } from "@/components/ui/info-hint";
 
 interface QuotesListProps {
   quotes: Quote[];
@@ -38,6 +40,9 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
                 <p className="mt-1 truncate text-base font-semibold">
                   {quote.customer_name}
                 </p>
+                <div className="mt-1">
+                  <QuoteStatusBadge status={quote.status} validUntil={quote.valid_until} />
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {formatDate(quote.created_at)}
                 </p>
@@ -76,6 +81,12 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
             <TableRow>
               <TableHead>#</TableHead>
               <TableHead>{t("common.customer")}</TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1.5">
+                  {t("quotes.statusLabel")}
+                  <InfoHint text={t("help.quoteStatus")} label={t("help.aria")} />
+                </span>
+              </TableHead>
               <TableHead>{t("common.date")}</TableHead>
               <TableHead className="text-right">{t("common.total")}</TableHead>
               <TableHead className="w-[180px]" />
@@ -89,6 +100,9 @@ export function QuotesList({ quotes, deletingId, onDelete }: QuotesListProps) {
                 </TableCell>
                 <TableCell className="max-w-[200px] truncate font-medium lg:max-w-none">
                   {quote.customer_name}
+                </TableCell>
+                <TableCell>
+                  <QuoteStatusBadge status={quote.status} validUntil={quote.valid_until} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">
                   {formatDate(quote.created_at)}

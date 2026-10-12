@@ -7,14 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMaxLgViewport } from "@/hooks/use-max-lg-viewport";
 import { CurrencySelect } from "@/components/ui/currency-select";
+import { InfoHint } from "@/components/ui/info-hint";
 import { type Currency } from "@/lib/currency";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import type { Customer } from "@/types";
 
 type QuoteWorkspaceMetaProps = {
   customerName: string;
   setCustomerName: (v: string) => void;
-  customerSuggestions: string[];
+  customerId: number | null;
+  setCustomerId: (v: number | null) => void;
+  customers: Customer[];
   validUntil: string;
   setValidUntil: (v: string) => void;
   currency: Currency;
@@ -29,7 +33,9 @@ type QuoteWorkspaceMetaProps = {
 export function QuoteWorkspaceMeta({
   customerName,
   setCustomerName,
-  customerSuggestions,
+  customerId,
+  setCustomerId,
+  customers,
   validUntil,
   setValidUntil,
   currency,
@@ -49,7 +55,7 @@ export function QuoteWorkspaceMeta({
   }, [maxLg]);
 
   return (
-    <div className="quote-workspace-meta shrink-0 rounded-[var(--radius)] border border-border/80 bg-card px-2 py-2 shadow-[var(--shadow-soft)] sm:px-3 sm:py-3 lg:px-4">
+    <div className="quote-workspace-meta shrink-0 rounded-[var(--radius)] border border-border bg-card px-2 py-2 sm:px-3 sm:py-3 lg:px-4">
       <button
         type="button"
         className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left lg:hidden"
@@ -72,26 +78,54 @@ export function QuoteWorkspaceMeta({
         )}
       >
         <div className="min-w-0 space-y-1">
+          <Label htmlFor="customer-pick" className="text-xs">
+            {t("customers.pick")}
+          </Label>
+          <select
+            id="customer-pick"
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={customerId ?? ""}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (!raw) {
+                setCustomerId(null);
+                return;
+              }
+              const picked = customers.find((c) => c.id === Number(raw));
+              if (!picked) return;
+              setCustomerId(picked.id);
+              setCustomerName(picked.name);
+            }}
+          >
+            <option value="">{t("customers.pickNew")}</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
           <Label htmlFor="customer" className="text-xs">
             {t("quotes.customerName")}
           </Label>
           <Input
             id="customer"
-            list="customer-suggestions"
             placeholder={t("quotes.customerPlaceholder")}
             value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setCustomerName(next);
+              const match = customers.find(
+                (c) => c.name.toLowerCase() === next.trim().toLowerCase(),
+              );
+              setCustomerId(match ? match.id : null);
+            }}
             className="h-9"
           />
-          <datalist id="customer-suggestions">
-            {customerSuggestions.map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="valid-until" className="text-xs">
+          <Label htmlFor="valid-until" className="inline-flex items-center gap-1.5 text-xs">
             {t("quotes.validUntil")}
+            <InfoHint text={t("help.validUntil")} label={t("help.aria")} />
           </Label>
           <Input
             id="valid-until"
@@ -102,8 +136,9 @@ export function QuoteWorkspaceMeta({
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="quote-currency" className="text-xs">
+          <Label htmlFor="quote-currency" className="inline-flex items-center gap-1.5 text-xs">
             {t("quotes.currency")}
+            <InfoHint text={t("help.currency")} label={t("help.aria")} />
           </Label>
           <CurrencySelect
             id="quote-currency"

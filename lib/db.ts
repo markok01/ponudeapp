@@ -200,18 +200,6 @@ async function ensureSchema(p: Pool): Promise<void> {
         }
       }
 
-      try {
-        await p.query(`ALTER TABLE quotes DROP COLUMN status`);
-      } catch (error: unknown) {
-        const code =
-          error && typeof error === "object" && "code" in error
-            ? String((error as { code: string }).code)
-            : "";
-        if (code !== "ER_BAD_FIELD_ERROR" && code !== "ER_CANT_DROP_FIELD_OR_KEY") {
-          throw error;
-        }
-      }
-
       await ensureOrganizationsSchema(p);
     })();
   }
@@ -387,6 +375,19 @@ async function ensureSignupSchema(p: Pool): Promise<void> {
   }
 
   await p.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_reset_token_hash (token_hash),
+      INDEX idx_reset_user (user_id),
+      INDEX idx_reset_expires (expires_at)
+    )
+  `);
+
+  await p.query(`
     CREATE TABLE IF NOT EXISTS email_verification_tokens (
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
@@ -448,6 +449,28 @@ async function ensureSignupSchema(p: Pool): Promise<void> {
   await ensureOnboardingSchema(p);
   await ensureCatalogListsSchema(p);
   await ensureCurrencySchema(p);
+  await ensureQuoteSnapshotSchema(p);
+  await ensureCustomersSchema(p);
+  await ensureOrgActivitySchema(p);
+}
+
+async function ensureOrgActivitySchema(p: Pool): Promise<void> {
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS org_activity_log (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      organization_id INT NOT NULL,
+      actor_user_id INT NULL,
+      actor_email VARCHAR(255) NULL,
+      action VARCHAR(64) NOT NULL,
+      entity_type VARCHAR(40) NULL,
+      entity_id INT NULL,
+      summary VARCHAR(500) NOT NULL,
+      metadata JSON NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_org_activity_org_time (organization_id, created_at),
+      INDEX idx_org_activity_action (organization_id, action)
+    )
+  `);
 }
 
 async function ensureBillingSchema(p: Pool): Promise<void> {
@@ -486,6 +509,75 @@ async function ensureOnboardingSchema(p: Pool): Promise<void> {
     `ALTER TABLE organizations ADD COLUMN onboarding_completed TINYINT(1) NOT NULL DEFAULT 1 AFTER stripe_subscription_id`,
     ["ER_DUP_FIELDNAME"],
   );
+}
+
+async function ensureCustomersSchema(p: Pool): Promise<void> {
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      organization_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      tax_id VARCHAR(32) NULL,
+      address VARCHAR(500) NULL,
+      email VARCHAR(255) NULL,
+      phone VARCHAR(50) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_customers_org (organization_id),
+      INDEX idx_customers_org_name (organization_id, name)
+    )
+  `);
+  await runIgnore(
+    p,
+    `ALTER TABLE quotes ADD COLUMN customer_id INT NULL AFTER customer_name`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  await p.query(`
+    INSERT INTO customers (organization_id, name)
+    SELECT DISTINCT q.organization_id, q.customer_name
+    FROM quotes q
+    WHERE TRIM(q.customer_name) <> ''
+      AND NOT EXISTS (
+        SELECT 1 FROM customers c
+        WHERE c.organization_id = q.organization_id AND c.name = q.customer_name
+      )
+  `);
+  await p.query(`
+    UPDATE quotes q
+    INNER JOIN customers c
+      ON c.organization_id = q.organization_id AND c.name = q.customer_name
+    SET q.customer_id = c.id
+    WHERE q.customer_id IS NULL
+  `);
+}
+
+async function ensureQuoteSnapshotSchema(p: Pool): Promise<void> {
+  await runIgnore(
+    p,
+    `ALTER TABLE quotes ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'draft' AFTER currency`,
+    ["ER_DUP_FIELDNAME"],
+  );
+  const itemColumns = [
+    `ALTER TABLE quote_items ADD COLUMN snap_sku VARCHAR(100) NULL AFTER final_price`,
+    `ALTER TABLE quote_items ADD COLUMN snap_name VARCHAR(255) NULL AFTER snap_sku`,
+    `ALTER TABLE quote_items ADD COLUMN snap_category VARCHAR(100) NULL AFTER snap_name`,
+    `ALTER TABLE quote_items ADD COLUMN snap_unit_price DECIMAL(10, 2) NULL AFTER snap_category`,
+    `ALTER TABLE quote_items ADD COLUMN snap_pdv_percent DECIMAL(5, 2) NULL AFTER snap_unit_price`,
+    `ALTER TABLE quote_items ADD COLUMN snap_measure_unit VARCHAR(50) NULL AFTER snap_pdv_percent`,
+  ];
+  for (const sql of itemColumns) {
+    await runIgnore(p, sql, ["ER_DUP_FIELDNAME"]);
+  }
+  await p.query(`
+    UPDATE quote_items qi
+    INNER JOIN products p ON p.id = qi.product_id
+    SET qi.snap_sku = p.sku,
+        qi.snap_name = p.name,
+        qi.snap_category = p.category,
+        qi.snap_unit_price = p.price,
+        qi.snap_pdv_percent = p.pdv_percent,
+        qi.snap_measure_unit = p.measure_unit
+    WHERE qi.snap_unit_price IS NULL
+  `);
 }
 
 async function ensureCurrencySchema(p: Pool): Promise<void> {

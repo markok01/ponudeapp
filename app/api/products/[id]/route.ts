@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isOrgResponse, requireOrganizationId } from "@/lib/org-session";
+import { isOrgResponse, requireStaffOrganization } from "@/lib/org-session";
 import { deleteProduct, getProductById, updateProduct } from "@/services/products";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const ctx = await requireOrganizationId(request);
+    const ctx = await requireStaffOrganization(request);
     if (isOrgResponse(ctx)) return ctx;
 
     const { id: idParam } = await context.params;
@@ -61,7 +61,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const ctx = await requireOrganizationId(request);
+    const ctx = await requireStaffOrganization(request);
     if (isOrgResponse(ctx)) return ctx;
 
     const { id: idParam } = await context.params;

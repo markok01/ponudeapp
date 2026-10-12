@@ -1,11 +1,20 @@
 import ExcelJS from "exceljs";
-import type { QuoteWithItems } from "@/types";
+import type { CatalogColorPalette, QuoteWithItems } from "@/types";
 import { excelCurrencyNumFmt, normalizeCurrency } from "@/lib/currency";
+import {
+  CATALOG_THEME_DEFAULT,
+  hexToArgb,
+  normalizeCatalogColors,
+} from "@/lib/catalog-theme";
 import { linePriceAfterDiscount, linePriceWithPdv } from "@/utils/quote-calc";
 import { formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
 
-export async function exportQuoteExcel(quote: QuoteWithItems) {
+export async function exportQuoteExcel(
+  quote: QuoteWithItems,
+  catalogColors?: CatalogColorPalette | null,
+) {
+  const theme = normalizeCatalogColors(catalogColors, CATALOG_THEME_DEFAULT);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Ponuda");
   const moneyFmt = excelCurrencyNumFmt(normalizeCurrency(quote.currency));
@@ -46,11 +55,11 @@ export async function exportQuoteExcel(quote: QuoteWithItems) {
   ].forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
     cell.value = h;
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.font = { bold: true, color: { argb: hexToArgb(theme.headerText) } };
     cell.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FF3B82F6" },
+      fgColor: { argb: hexToArgb(theme.headerBg) },
     };
   });
 
@@ -73,6 +82,8 @@ export async function exportQuoteExcel(quote: QuoteWithItems) {
     row.getCell(4).numFmt = moneyFmt;
     row.getCell(6).numFmt = moneyFmt;
     row.getCell(7).numFmt = moneyFmt;
+    row.getCell(4).font = { color: { argb: hexToArgb(theme.price) } };
+    row.getCell(7).font = { color: { argb: hexToArgb(theme.price) } };
   });
 
   const totalRow = sheet.getRow(headerRowNum + 1 + quote.items.length);
@@ -80,7 +91,10 @@ export async function exportQuoteExcel(quote: QuoteWithItems) {
   totalRow.getCell(6).font = { bold: true };
   totalRow.getCell(7).value = quote.total;
   totalRow.getCell(7).numFmt = moneyFmt;
-  totalRow.getCell(7).font = { bold: true };
+  totalRow.getCell(7).font = {
+    bold: true,
+    color: { argb: hexToArgb(theme.priceTotal) },
+  };
 
   sheet.columns = [
     { width: 14 },

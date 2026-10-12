@@ -44,13 +44,28 @@ CREATE TABLE IF NOT EXISTS quotes (
   organization_id INT NOT NULL,
   quote_number VARCHAR(32) NOT NULL,
   customer_name VARCHAR(255) NOT NULL,
+  customer_id INT NULL,
   note TEXT NULL,
   valid_until DATE NULL,
   currency CHAR(3) NOT NULL DEFAULT 'RSD',
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   total DECIMAL(12, 2) NOT NULL DEFAULT 0,
   UNIQUE KEY uk_quotes_org_number (organization_id, quote_number),
   INDEX idx_quotes_org (organization_id)
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  organization_id INT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  tax_id VARCHAR(32) NULL,
+  address VARCHAR(500) NULL,
+  email VARCHAR(255) NULL,
+  phone VARCHAR(50) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_customers_org (organization_id),
+  INDEX idx_customers_org_name (organization_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS quote_items (
@@ -60,6 +75,12 @@ CREATE TABLE IF NOT EXISTS quote_items (
   qty INT NOT NULL DEFAULT 1,
   discount_percent DECIMAL(5, 2) NOT NULL DEFAULT 0,
   final_price DECIMAL(12, 2) NOT NULL,
+  snap_sku VARCHAR(100) NULL,
+  snap_name VARCHAR(255) NULL,
+  snap_category VARCHAR(100) NULL,
+  snap_unit_price DECIMAL(10, 2) NULL,
+  snap_pdv_percent DECIMAL(5, 2) NULL,
+  snap_measure_unit VARCHAR(50) NULL,
   FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id)
 );
@@ -113,6 +134,17 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY uk_users_google_sub (google_sub)
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_reset_token_hash (token_hash),
+  INDEX idx_reset_user (user_id),
+  INDEX idx_reset_expires (expires_at)
+);
+
 CREATE TABLE IF NOT EXISTS email_verification_tokens (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
@@ -121,6 +153,32 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_verify_token_hash (token_hash),
   INDEX idx_verify_user (user_id)
+);
+
+CREATE TABLE IF NOT EXISTS org_activity_log (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  organization_id INT NOT NULL,
+  actor_user_id INT NULL,
+  actor_email VARCHAR(255) NULL,
+  action VARCHAR(64) NOT NULL,
+  entity_type VARCHAR(40) NULL,
+  entity_id INT NULL,
+  summary VARCHAR(500) NOT NULL,
+  metadata JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_org_activity_org_time (organization_id, created_at),
+  INDEX idx_org_activity_action (organization_id, action)
+);
+
+CREATE TABLE IF NOT EXISTS ops_health_state (
+  check_name VARCHAR(40) PRIMARY KEY,
+  status VARCHAR(20) NOT NULL DEFAULT 'unknown',
+  fail_streak INT NOT NULL DEFAULT 0,
+  last_ok_at DATETIME NULL,
+  last_fail_at DATETIME NULL,
+  last_alert_at DATETIME NULL,
+  last_message VARCHAR(500) NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS organization_invites (

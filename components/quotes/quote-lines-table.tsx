@@ -7,6 +7,7 @@ import { ResizableColumnHead } from "@/components/quotes/resizable-column-head";
 import { useQuoteWorkspaceLayout } from "@/components/quotes/quote-workspace-layout-context";
 import { Button } from "@/components/ui/button";
 import { QuoteDiscountInput } from "@/components/quotes/quote-discount-input";
+import { InfoHint } from "@/components/ui/info-hint";
 import { TruncatedProductName } from "@/components/ui/product-name-tooltip";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -150,7 +151,10 @@ export function QuoteLinesTable({
               align="right"
               onResize={(d) => resizeQuoteCol("exVat", d)}
             >
-              {t("quotes.exVat")}
+              <span className="inline-flex items-center justify-end gap-1">
+                {t("quotes.exVat")}
+                <InfoHint text={t("help.pdv")} label={t("help.aria")} />
+              </span>
             </ResizableColumnHead>
             {!hideQuoteIncVat ? (
               <ResizableColumnHead
@@ -165,7 +169,10 @@ export function QuoteLinesTable({
               variant="quote"
               onResize={(d) => resizeQuoteCol("discount", d)}
             >
-              {t("quotes.discount")}
+              <span className="inline-flex items-center gap-1">
+                {t("quotes.discount")}
+                <InfoHint text={t("help.discount")} label={t("help.aria")} />
+              </span>
             </ResizableColumnHead>
             <ResizableColumnHead
               variant="quote"

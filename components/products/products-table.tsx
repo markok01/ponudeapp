@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductsCatalogLayoutProvider } from "@/components/catalog/products-catalog-layout-context";
 import { ProductsHorecaTable } from "@/components/products/products-horeca-table";
+import { useOrgAccess } from "@/hooks/use-org-access";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import type { PriceListRecord, PriceListTemplate, Product } from "@/types";
 
@@ -20,6 +21,8 @@ const ALL_PRODUCTS_PAGE_SIZE = 50_000;
 
 export function ProductsTable() {
   const t = useTranslations();
+  const access = useOrgAccess();
+  const canManage = !access.loading && access.staff;
   const [lists, setLists] = useState<PriceListRecord[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -172,6 +175,7 @@ export function ProductsTable() {
         selectedId={selectedId}
         onSelect={setSelectedId}
         onChanged={(id) => void loadLists(id)}
+        canManage={canManage}
       />
 
       {selected && !selected.active ? (
@@ -180,7 +184,7 @@ export function ProductsTable() {
         </p>
       ) : null}
 
-      {showForm ? (
+      {canManage && showForm ? (
         <Card>
           <CardHeader>
             <CardTitle>{t("products.addProduct")}</CardTitle>
@@ -276,12 +280,14 @@ export function ProductsTable() {
               {selected?.name ?? t("products.priceList")}
             </CardTitle>
             <div className="flex flex-col gap-2 sm:flex-row">
+              {canManage ? (
               <Button variant="outline" className="w-full sm:w-auto" asChild>
                 <Link href="/upload">
                   <FileUp className="h-4 w-4" />
                   {t("products.importExcel")}
                 </Link>
               </Button>
+              ) : null}
               <Button
                 variant="outline"
                 className="w-full sm:w-auto"
@@ -291,6 +297,7 @@ export function ProductsTable() {
                 <Download className="h-4 w-4" />
                 {t("products.exportExcel")}
               </Button>
+              {canManage ? (
               <Button
                 className="w-full sm:w-auto"
                 onClick={() => setShowForm((v) => !v)}
@@ -299,6 +306,7 @@ export function ProductsTable() {
                 <Plus className="h-4 w-4" />
                 {t("products.newProduct")}
               </Button>
+              ) : null}
             </div>
           </div>
           <CatalogFilters
@@ -330,17 +338,22 @@ export function ProductsTable() {
               title={t("products.noProducts")}
               description={`${t("products.noProductsHint")} ${columnsHint}`}
               action={
+                canManage ? (
                 <Button type="button" onClick={() => setShowForm(true)}>
                   <Plus className="h-4 w-4" />
                   {t("products.newProduct")}
                 </Button>
+                ) : undefined
               }
             />
           ) : (
             <>
+              {canManage ? (
               <p className="mb-3 text-xs text-muted-foreground">{t("products.editHint")}</p>
+              ) : null}
               <ProductsCatalogLayoutProvider>
                 <ProductsHorecaTable
+                  readOnly={!canManage}
                   products={products}
                   onProductUpdated={handleProductUpdated}
                   onProductDeleted={handleProductDeleted}

@@ -1,7 +1,12 @@
 import { jsPDF } from "jspdf";
 import autoTable, { type CellDef, type RowInput, type Styles } from "jspdf-autotable";
-import type { QuoteItemWithProduct, QuoteWithItems } from "@/types";
+import type { CatalogColorPalette, QuoteItemWithProduct, QuoteWithItems } from "@/types";
 import { fitImageBox, loadImageDimensions } from "@/lib/file-to-base64";
+import {
+  CATALOG_THEME_DEFAULT,
+  catalogThemeToPdfColors,
+  normalizeCatalogColors,
+} from "@/lib/catalog-theme";
 import {
   PDF_FONT,
   PDF_FONT_BOLD,
@@ -21,15 +26,35 @@ import { inferMeasureUnit } from "@/utils/measure-unit";
 const PAGE_MARGIN = 12;
 const CONTENT_WIDTH = 186;
 
-const COLORS = {
-  ink: [15, 23, 42] as [number, number, number],
-  muted: [100, 116, 139] as [number, number, number],
-  border: [226, 232, 240] as [number, number, number],
-  stripe: [248, 250, 252] as [number, number, number],
-  accent: [37, 99, 235] as [number, number, number],
-  white: [255, 255, 255] as [number, number, number],
-  brand: [176, 159, 198] as [number, number, number],
+type PdfThemeColors = {
+  ink: [number, number, number];
+  muted: [number, number, number];
+  border: [number, number, number];
+  stripe: [number, number, number];
+  accent: [number, number, number];
+  white: [number, number, number];
+  brand: [number, number, number];
+  brandText: [number, number, number];
+  header: [number, number, number];
+  headerText: [number, number, number];
 };
+
+function buildPdfTheme(palette?: CatalogColorPalette | null): PdfThemeColors {
+  const colors = normalizeCatalogColors(palette, CATALOG_THEME_DEFAULT);
+  const themed = catalogThemeToPdfColors(colors);
+  return {
+    ink: [15, 23, 42],
+    muted: [100, 116, 139],
+    border: [226, 232, 240],
+    stripe: [248, 250, 252],
+    white: [255, 255, 255],
+    brand: themed.brand,
+    brandText: themed.brandText,
+    header: themed.header,
+    headerText: themed.headerText,
+    accent: themed.priceTotal,
+  };
+}
 
 export interface GenerateQuotePdfOptions {
   /** @deprecated Rabat je uvek uračunat u cene; opcija se ignoriše. */
@@ -40,6 +65,15 @@ export interface GenerateQuotePdfOptions {
   includeLogo?: boolean;
   logoBase64?: string | null;
   companyName?: string;
+  companyTaxId?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyBankAccount?: string;
+  stampBase64?: string | null;
+  /** false = vrati base64 umesto preuzimanja. */
+  download?: boolean;
+  /** Boje cenovnika (brand headeri / zaglavlje / ukupno). */
+  catalogColors?: CatalogColorPalette | null;
 }
 
 type JsPdfWithTable = jsPDF & {
@@ -111,6 +145,7 @@ function brandHeaderRow(
   label: string,
   withSpacer: boolean,
   colCount: number,
+  colors: PdfThemeColors,
 ): RowInput[] {
   const rows: RowInput[] = [];
 
@@ -120,7 +155,7 @@ function brandHeaderRow(
         content: "",
         colSpan: colCount,
         styles: {
-          fillColor: COLORS.white,
+          fillColor: colors.white,
           lineWidth: 0,
           minCellHeight: 3,
           cellPadding: 0,
@@ -134,8 +169,8 @@ function brandHeaderRow(
       content: label.toUpperCase(),
       colSpan: colCount,
       styles: {
-        fillColor: COLORS.brand,
-        textColor: COLORS.white,
+        fillColor: colors.brand,
+        textColor: colors.brandText,
         font: PDF_FONT_BOLD,
         fontStyle: "normal",
         fontSize: 6.5,
@@ -154,6 +189,7 @@ function buildTableBody(
   items: QuoteItemWithProduct[],
   showMeasureUnit: boolean,
   currency: string,
+  colors: PdfThemeColors,
 ): RowInput[] {
   const colCount = showMeasureUnit ? 4 : 3;
   const groups = groupQuoteItemsByBrand(items);
@@ -161,7 +197,7 @@ function buildTableBody(
   let productStripe = false;
 
   groups.forEach((group, groupIndex) => {
-    body.push(...brandHeaderRow(group.label, groupIndex > 0, colCount));
+    body.push(...brandHeaderRow(group.label, groupIndex > 0, colCount, colors));
 
     for (const item of group.items) {
       const netWithDiscount =
@@ -177,7 +213,7 @@ function buildTableBody(
       const displayName =
         (item.qty || 1) > 1 ? `${item.name} (${item.qty} kom)` : item.name;
 
-      const fillColor = productStripe ? COLORS.stripe : COLORS.white;
+      const fillColor = productStripe ? colors.stripe : colors.white;
       productStripe = !productStripe;
 
       const row: CellDef[] = [
@@ -250,6 +286,7 @@ async function drawHeader(
   doc: jsPDF,
   quote: QuoteWithItems,
   options: GenerateQuotePdfOptions,
+  colors: PdfThemeColors,
 ): Promise<number> {
   const companyName =
     options.companyName?.trim() ||
@@ -279,19 +316,60 @@ async function drawHeader(
     }
   }
 
+  const details = [
+    options.companyTaxId?.trim() ? `PIB: ${options.companyTaxId.trim()}` : null,
+    options.companyAddress?.trim() || null,
+    options.companyPhone?.trim() || null,
+    options.companyBankAccount?.trim()
+      ? `Žiro: ${options.companyBankAccount.trim()}`
+      : null,
+  ].filter((line): line is string => Boolean(line));
+
+  if (details.length) {
+    setPdfFont(doc, "normal", 8);
+    doc.setTextColor(...colors.muted);
+    for (const line of details) {
+      const wrapped = doc.splitTextToSize(line, 90) as string[];
+      doc.text(wrapped, PAGE_MARGIN, y);
+      y += wrapped.length * 3.6;
+    }
+    y += 2;
+  }
+
+  if (options.stampBase64) {
+    try {
+      const { width, height } = await loadImageDimensions(options.stampBase64);
+      const box = fitImageBox(width, height, 22, 22);
+      const format = options.stampBase64.includes("image/png") ? "PNG" : "JPEG";
+      doc.addImage(
+        options.stampBase64,
+        format,
+        PAGE_MARGIN,
+        y,
+        box.width,
+        box.height,
+        undefined,
+        "FAST",
+      );
+      y += box.height + 4;
+    } catch {
+      /* preskoči */
+    }
+  }
+
   const headerTop = PAGE_MARGIN;
   const metaX = PAGE_MARGIN + CONTENT_WIDTH;
 
   setPdfFont(doc, "normal", 10);
-  doc.setTextColor(...COLORS.muted);
+  doc.setTextColor(...colors.muted);
   doc.text(companyName, metaX, headerTop + 4, { align: "right" });
 
   setPdfFont(doc, "bold", 24);
-  doc.setTextColor(...COLORS.ink);
+  doc.setTextColor(...colors.ink);
   doc.text("PONUDA", metaX, headerTop + 15, { align: "right" });
 
   setPdfFont(doc, "normal", 10);
-  doc.setTextColor(...COLORS.muted);
+  doc.setTextColor(...colors.muted);
   doc.text(`Datum: ${formatDate(quote.created_at)}`, metaX, headerTop + 23, {
     align: "right",
   });
@@ -309,12 +387,12 @@ async function drawHeader(
   }
 
   const blockY = Math.max(y, headerTop + 36);
-  doc.setDrawColor(...COLORS.border);
+  doc.setDrawColor(...colors.border);
   doc.setLineWidth(0.4);
   doc.line(PAGE_MARGIN, blockY, PAGE_MARGIN + CONTENT_WIDTH, blockY);
 
   setPdfFont(doc, "bold", 11);
-  doc.setTextColor(...COLORS.ink);
+  doc.setTextColor(...colors.ink);
   doc.text("Kupac", PAGE_MARGIN, blockY + 9);
 
   setPdfFont(doc, "normal", 11);
@@ -332,6 +410,7 @@ function drawTotalsBlock(
   startY: number,
   finalTotal: number,
   currency: string,
+  colors: PdfThemeColors,
 ) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const boxWidth = 72;
@@ -344,8 +423,8 @@ function drawTotalsBlock(
     y = PAGE_MARGIN + 8;
   }
 
-  doc.setFillColor(...COLORS.stripe);
-  doc.setDrawColor(...COLORS.border);
+  doc.setFillColor(...colors.stripe);
+  doc.setDrawColor(...colors.border);
   doc.setLineWidth(0.3);
   doc.roundedRect(boxX, y, boxWidth, boxHeight, 2, 2, "FD");
 
@@ -353,11 +432,11 @@ function drawTotalsBlock(
   const valueX = boxX + boxWidth - 5;
 
   setPdfFont(doc, "bold", 9);
-  doc.setTextColor(...COLORS.ink);
+  doc.setTextColor(...colors.ink);
   doc.text("UKUPNO SA PDV", labelX, y + 10);
 
   setPdfFont(doc, "bold", 12);
-  doc.setTextColor(...COLORS.accent);
+  doc.setTextColor(...colors.accent);
   doc.text(
     formatPdfMoney(finalTotal, currency),
     valueX,
@@ -369,17 +448,18 @@ function drawTotalsBlock(
 export async function generateQuotePDF(
   quote: QuoteWithItems,
   options: GenerateQuotePdfOptions,
-): Promise<void> {
+): Promise<string | void> {
   if (!quote.items.length) {
     throw new Error("Ponuda nema stavki za export");
   }
 
   await yieldToMain();
 
+  const colors = buildPdfTheme(options.catalogColors);
   const doc = new jsPDF({ unit: "mm", format: "a4" }) as JsPdfWithTable;
   await registerPdfFonts(doc);
 
-  const tableStartY = await drawHeader(doc, quote, options);
+  const tableStartY = await drawHeader(doc, quote, options, colors);
   const finalTotal = sumQuoteGross(quote.items);
   const showMeasureUnit = options.showMeasureUnit === true;
 
@@ -405,24 +485,24 @@ export async function generateQuotePDF(
     margin: { left: PAGE_MARGIN, right: PAGE_MARGIN, bottom: 14 },
     tableWidth: CONTENT_WIDTH,
     head: [head],
-    body: buildTableBody(quote.items, showMeasureUnit, quote.currency),
+    body: buildTableBody(quote.items, showMeasureUnit, quote.currency, colors),
     theme: "plain",
     styles: {
       font: PDF_FONT,
       fontSize: 6,
       overflow: "linebreak",
       cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
-      lineColor: COLORS.border,
+      lineColor: colors.border,
       lineWidth: 0.1,
-      textColor: COLORS.ink,
+      textColor: colors.ink,
       valign: "middle",
       minCellHeight: 5,
     },
     headStyles: {
       font: PDF_FONT_BOLD,
       fontStyle: "normal",
-      fillColor: COLORS.ink,
-      textColor: COLORS.white,
+      fillColor: colors.header,
+      textColor: colors.headerText,
       fontSize: 6.5,
       cellPadding: { top: 2.5, right: 2, bottom: 2.5, left: 2 },
       valign: "middle",
@@ -432,7 +512,7 @@ export async function generateQuotePDF(
     columnStyles,
     didDrawPage: (data) => {
       setPdfFont(doc, "normal", 7);
-      doc.setTextColor(...COLORS.muted);
+      doc.setTextColor(...colors.muted);
       const footerY = doc.internal.pageSize.getHeight() - 7;
       if (quote.note?.trim() && data.pageNumber === doc.getNumberOfPages()) {
         doc.text(quote.note.trim(), PAGE_MARGIN, footerY - 4, {
@@ -450,10 +530,16 @@ export async function generateQuotePDF(
 
   if (options.showTotalSummary) {
     const finalY = doc.lastAutoTable?.finalY ?? tableStartY + 40;
-    drawTotalsBlock(doc, finalY, finalTotal, quote.currency);
+    drawTotalsBlock(doc, finalY, finalTotal, quote.currency, colors);
   }
 
   await yieldToMain();
+
+  if (options.download === false) {
+    const uri = doc.output("datauristring");
+    const comma = uri.indexOf(",");
+    return comma >= 0 ? uri.slice(comma + 1) : uri;
+  }
 
   doc.save(buildQuotePdfFileName(quote));
 }

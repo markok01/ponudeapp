@@ -7,6 +7,7 @@ const KEYS = [
   "service",
   "subscription",
   "vat",
+  "dataRole",
   "liability",
   "cancel",
   "law",

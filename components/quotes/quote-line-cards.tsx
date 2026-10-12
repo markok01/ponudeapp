@@ -4,8 +4,10 @@ import { useMemo, useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuoteDiscountInput } from "@/components/quotes/quote-discount-input";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Label } from "@/components/ui/label";
 import { TruncatedProductName } from "@/components/ui/product-name-tooltip";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { QuoteLineDraft } from "@/types";
 import { type Currency } from "@/lib/currency";
@@ -37,6 +39,7 @@ export function QuoteLineCards({
   onRemove,
   invalidDiscountIds = [],
 }: QuoteLineCardsProps) {
+  const t = useTranslations();
   const listRef = useRef<HTMLDivElement>(null);
   const productIds = useMemo(
     () => lines.map((line) => line.product.id),
@@ -64,8 +67,8 @@ export function QuoteLineCards({
           <article
             key={line.product.id}
             className={cn(
-              "rounded-[var(--radius-md)] border border-border bg-card px-3 py-2.5 shadow-[var(--shadow-soft)]",
-              isHighlighted && "border-primary/40 bg-primary/5",
+              "rounded-[var(--radius-md)] border border-border bg-card px-3 py-2.5",
+              isHighlighted && "border-primary/35 bg-accent/50",
             )}
           >
             <div className="flex items-start justify-between gap-2">
@@ -93,7 +96,10 @@ export function QuoteLineCards({
 
             <div className="mt-2 flex items-end justify-between gap-2">
               <div className="min-w-[4.5rem]">
-                <Label className="text-[10px]">Rabat</Label>
+                <Label className="inline-flex items-center gap-1 text-[10px]">
+                  {t("quotes.discount")}
+                  <InfoHint text={t("help.discount")} label={t("help.aria")} />
+                </Label>
                 <QuoteDiscountInput
                   data-quote-discount-input={line.product.id}
                   invalid={badDiscount}

@@ -8,9 +8,11 @@ import { AdminSessionsPanel } from "@/components/settings/admin-sessions-panel";
 import { AdminUsersPanel } from "@/components/settings/admin-users-panel";
 import { DesktopAppCard } from "@/components/settings/desktop-app-card";
 import { DeleteOrganizationCard } from "@/components/settings/delete-organization-card";
+import { OrgActivityCard, OrgExportCard } from "@/components/settings/org-trust-cards";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { LanguageSettingsCard } from "@/components/settings/language-settings-card";
 import { CurrencySettingsCard } from "@/components/settings/currency-settings-card";
+import { CatalogThemeSettingsCard } from "@/components/settings/catalog-theme-settings-card";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,8 +34,15 @@ export default function SettingsPage() {
   const t = useTranslations();
   const adminAccess = useIsAdmin();
   const logoInputId = useId();
+  const stampInputId = useId();
   const [companyName, setCompanyName] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
+  const [membersCanLockQuotes, setMembersCanLockQuotes] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [stampPreview, setStampPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const previewRef = useRef<string | null>(null);
@@ -41,7 +50,13 @@ export default function SettingsPage() {
   useEffect(() => {
     void fetchAppSettings().then((settings) => {
       setCompanyName(settings.companyName);
+      setTaxId(settings.taxId);
+      setAddress(settings.address);
+      setPhone(settings.phone);
+      setBankAccount(settings.bankAccount);
+      setMembersCanLockQuotes(settings.membersCanLockQuotes);
       setLogoPreview(settings.logoDataUrl);
+      setStampPreview(settings.stampDataUrl);
       setLoading(false);
     });
   }, []);
@@ -89,11 +104,43 @@ export default function SettingsPage() {
     toast.success(t("settings.logoRemoved"));
   }
 
+  async function handleStampChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const error = validateLogoFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      await persistAppSettings({ stampDataUrl: dataUrl });
+      setStampPreview(dataUrl);
+      toast.success(t("settings.stampSaved"));
+    } catch {
+      toast.error(t("settings.logoUploadFailed"));
+    }
+  }
+
+  async function handleRemoveStamp() {
+    await persistAppSettings({ stampDataUrl: null });
+    setStampPreview(null);
+    toast.success(t("settings.stampRemoved"));
+  }
+
   async function handleSaveCompany(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      await persistAppSettings({ companyName: companyName.trim() });
+      await persistAppSettings({
+        companyName: companyName.trim(),
+        taxId,
+        address,
+        phone,
+        bankAccount,
+        membersCanLockQuotes,
+      });
       toast.success(t("settings.saved"));
     } catch {
       toast.error(t("settings.saveFailed"));
@@ -133,6 +180,8 @@ export default function SettingsPage() {
         <LanguageSettingsCard />
 
         <CurrencySettingsCard />
+
+        <CatalogThemeSettingsCard />
 
         <DesktopAppCard />
 
@@ -196,6 +245,44 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>{t("settings.stampTitle")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">{t("settings.stampHelp")}</p>
+            <div className="flex h-28 items-center justify-center rounded-xl border border-dashed border-input bg-muted/30 p-3">
+              {stampPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={stampPreview} alt="" className="max-h-full max-w-full object-contain" />
+              ) : (
+                <p className="text-sm text-muted-foreground">{t("settings.noStamp")}</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="button" variant="outline" size="sm" asChild>
+                <label htmlFor={stampInputId} className="cursor-pointer">
+                  <ImagePlus className="h-4 w-4" />
+                  {t("settings.uploadStamp")}
+                </label>
+              </Button>
+              {stampPreview ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => void handleRemoveStamp()}>
+                  <Trash2 className="h-4 w-4" />
+                  {t("common.remove")}
+                </Button>
+              ) : null}
+            </div>
+            <input
+              id={stampInputId}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="sr-only"
+              onChange={handleStampChange}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>{t("settings.companyTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
@@ -209,6 +296,42 @@ export default function SettingsPage() {
                   onChange={(e) => setCompanyName(e.target.value)}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="tax-id">{t("settings.taxId")}</Label>
+                <Input id="tax-id" value={taxId} onChange={(e) => setTaxId(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">{t("settings.address")}</Label>
+                <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">{t("settings.phone")}</Label>
+                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bank">{t("settings.bankAccount")}</Label>
+                  <Input
+                    id="bank"
+                    value={bankAccount}
+                    onChange={(e) => setBankAccount(e.target.value)}
+                  />
+                </div>
+              </div>
+              <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={membersCanLockQuotes}
+                  onChange={(e) => setMembersCanLockQuotes(e.target.checked)}
+                />
+                <span>
+                  <span className="block text-sm font-medium">{t("settings.membersCanLock")}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t("settings.membersCanLockHelp")}
+                  </span>
+                </span>
+              </label>
               <Button type="submit" className="w-full sm:w-auto" disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {t("common.save")}
@@ -222,6 +345,8 @@ export default function SettingsPage() {
         </>
         ) : null}
 
+        <OrgExportCard />
+        <OrgActivityCard />
         <DeleteOrganizationCard />
       </div>
     </DashboardShell>

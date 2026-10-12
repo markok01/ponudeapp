@@ -33,6 +33,7 @@ import { fetchAppSettings } from "@/lib/app-settings";
 import { DEFAULT_CURRENCY, normalizeCurrency, type Currency } from "@/lib/currency";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import type {
+  Customer,
   PriceListRecord,
   Product,
   QuoteLineDraft,
@@ -107,6 +108,8 @@ export function QuoteBuilder({
   const [catalogTotal, setCatalogTotal] = useState(0);
   const [catalogCategories, setCatalogCategories] = useState<string[]>([]);
   const [customerName, setCustomerName] = useState("");
+  const [customerId, setCustomerId] = useState<number | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [note, setNote] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY);
@@ -116,7 +119,6 @@ export function QuoteBuilder({
   const [discountDraft, setDiscountDraft] = useState<Record<number, string>>({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
-  const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -151,9 +153,9 @@ export function QuoteBuilder({
   useEffect(() => {
     async function loadCustomers() {
       try {
-        const res = await fetch("/api/quotes/customers");
+        const res = await fetch("/api/customers");
         const data = res.ok ? await res.json() : [];
-        setCustomerSuggestions(Array.isArray(data) ? data : []);
+        setCustomers(Array.isArray(data) ? data : []);
       } catch {
         /* optional */
       }
@@ -187,11 +189,13 @@ export function QuoteBuilder({
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
           const quote = data as QuoteWithItems;
-          setCustomerName(
-            mode === "edit"
-              ? quote.customer_name
-              : `${quote.customer_name} ${t("quotes.duplicateSuffix")}`,
-          );
+          if (mode === "edit" || quote.customer_id) {
+            setCustomerId(quote.customer_id);
+            setCustomerName(quote.customer_name);
+          } else {
+            setCustomerId(null);
+            setCustomerName(`${quote.customer_name} ${t("quotes.duplicateSuffix")}`);
+          }
           setNote(quote.note ?? "");
           setValidUntil(quote.valid_until ?? "");
           setCurrency(normalizeCurrency(quote.currency));
@@ -206,6 +210,7 @@ export function QuoteBuilder({
       const saved = loadQuoteDraft(draftKey);
       if (saved && mode === "create" && !duplicateFromId) {
         setCustomerName(saved.customerName);
+        setCustomerId(saved.customerId ?? null);
         setNote(saved.note);
         setValidUntil(saved.validUntil);
         if (saved.currency) setCurrency(normalizeCurrency(saved.currency));
@@ -243,13 +248,14 @@ export function QuoteBuilder({
     if (!hydratedRef.current || mode === "edit") return;
     const draft: QuoteBuilderDraft = {
       customerName,
+      customerId,
       note,
       validUntil,
       currency,
       lines,
     };
     saveQuoteDraft(draftKey, draft);
-  }, [customerName, note, validUntil, currency, lines, draftKey, mode]);
+  }, [customerName, customerId, note, validUntil, currency, lines, draftKey, mode]);
 
   const displayProducts = allProducts;
 
@@ -373,6 +379,7 @@ export function QuoteBuilder({
     setSaving(true);
     try {
       const payload = {
+        customer_id: customerId,
         customer_name: customerName,
         note: note.trim() || null,
         valid_until: validUntil.trim() || null,
@@ -421,7 +428,9 @@ export function QuoteBuilder({
         t={t}
         customerName={customerName}
         setCustomerName={setCustomerName}
-        customerSuggestions={customerSuggestions}
+        customerId={customerId}
+        setCustomerId={setCustomerId}
+        customers={customers}
         validUntil={validUntil}
         setValidUntil={setValidUntil}
         currency={currency}
@@ -461,7 +470,9 @@ function QuoteBuilderWorkspace({
   t,
   customerName,
   setCustomerName,
-  customerSuggestions,
+  customerId,
+  setCustomerId,
+  customers,
   validUntil,
   setValidUntil,
   currency,
@@ -496,7 +507,9 @@ function QuoteBuilderWorkspace({
   t: ReturnType<typeof useTranslations>;
   customerName: string;
   setCustomerName: (v: string) => void;
-  customerSuggestions: string[];
+  customerId: number | null;
+  setCustomerId: (v: number | null) => void;
+  customers: Customer[];
   validUntil: string;
   setValidUntil: (v: string) => void;
   currency: Currency;
@@ -536,7 +549,9 @@ function QuoteBuilderWorkspace({
       <QuoteWorkspaceMeta
         customerName={customerName}
         setCustomerName={setCustomerName}
-        customerSuggestions={customerSuggestions}
+        customerId={customerId}
+        setCustomerId={setCustomerId}
+        customers={customers}
         validUntil={validUntil}
         setValidUntil={setValidUntil}
         currency={currency}

@@ -114,14 +114,14 @@ export function DashboardShell({
                 variant="outline"
                 size="icon"
                 className={cn(
-                  "app-menu-btn h-10 w-10 shrink-0",
+                  "app-menu-btn h-9 w-9 shrink-0",
                   !isWorkspace && "lg:hidden",
                 )}
                 onClick={openNav}
                 aria-expanded={navOpen}
                 aria-label={t("nav.openMenu")}
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-4 w-4" />
               </Button>
               <div className="min-w-0">
                 {breadcrumbs?.length ? (
@@ -129,10 +129,10 @@ export function DashboardShell({
                 ) : null}
                 <h2
                   className={cn(
-                    "truncate font-semibold tracking-tight",
+                    "truncate font-semibold tracking-tight text-foreground",
                     isWorkspace
-                      ? "text-base sm:text-lg"
-                      : "text-lg sm:text-xl lg:text-2xl",
+                      ? "text-[15px] sm:text-base"
+                      : "text-lg sm:text-xl",
                   )}
                 >
                   {title}
@@ -143,7 +143,7 @@ export function DashboardShell({
                       "mt-0.5 text-muted-foreground print-description",
                       isWorkspace
                         ? "line-clamp-1 text-[11px] sm:text-xs"
-                        : "line-clamp-2 text-xs sm:text-sm",
+                        : "line-clamp-2 text-xs sm:text-[13px]",
                     )}
                   >
                     {description}

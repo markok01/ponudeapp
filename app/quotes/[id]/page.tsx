@@ -8,6 +8,7 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
+  Mail,
   Pencil,
   Printer,
 } from "lucide-react";
@@ -15,13 +16,29 @@ import { toast } from "sonner";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { QuoteExportModal } from "@/components/quotes/quote-export-modal";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { fetchAppSettings } from "@/lib/app-settings";
+import { resolveCatalogThemeFromSettings } from "@/lib/catalog-theme";
+import { generateQuotePDF } from "@/utils/generate-quote-pdf";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BreadcrumbItem } from "@/components/ui/breadcrumbs";
 import { QuoteDetailItems } from "@/components/quotes/quote-detail-items";
+import { QuoteStatusBadge } from "@/components/quotes/quote-status-badge";
+import { InfoHint } from "@/components/ui/info-hint";
+import { isQuoteLocked, type QuoteStatus } from "@/lib/quote-status";
 import type { QuoteWithItems } from "@/types";
 import { exportQuoteExcel } from "@/utils/export-excel";
 import { formatCurrency, formatDate } from "@/utils/format";
 import { getQuoteLabel } from "@/utils/format-quote-number";
+import { useOrgAccess } from "@/hooks/use-org-access";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import { sumQuoteGross, sumQuoteNet } from "@/utils/prices";
 
@@ -31,6 +48,11 @@ export default function QuoteDetailPage() {
   const [quote, setQuote] = useState<QuoteWithItems | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const access = useOrgAccess();
 
   useEffect(() => {
     async function load() {
@@ -69,6 +91,30 @@ export default function QuoteDetailPage() {
       }
     : { net: 0, gross: 0 };
 
+  const locked = quote ? isQuoteLocked(quote.status) : false;
+
+  async function patchQuote(body: { status?: QuoteStatus; action?: string }) {
+    if (!quote) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setQuote(data);
+      toast.success(
+        body.action === "refresh_prices" ? t("quotes.pricesRefreshed") : t("quotes.statusSaved"),
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("common.error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <DashboardShell title={t("quotes.detailTitle")} description={t("common.loading")}>
@@ -88,6 +134,50 @@ export default function QuoteDetailPage() {
     );
   }
 
+  async function sendQuoteEmail() {
+    if (!quote) return;
+    setSendingEmail(true);
+    try {
+      const settings = await fetchAppSettings();
+      const pdfBase64 = await generateQuotePDF(quote, {
+        showTotalSummary: false,
+        includeLogo: Boolean(settings.logoDataUrl),
+        logoBase64: settings.logoDataUrl,
+        companyName: settings.companyName || undefined,
+        companyTaxId: settings.taxId || undefined,
+        companyAddress: settings.address || undefined,
+        companyPhone: settings.phone || undefined,
+        companyBankAccount: settings.bankAccount || undefined,
+        stampBase64: settings.stampDataUrl,
+        catalogColors: resolveCatalogThemeFromSettings(settings),
+        download: false,
+      });
+      if (typeof pdfBase64 !== "string" || !pdfBase64) {
+        throw new Error(t("quotes.pdfFailed"));
+      }
+      const res = await fetch(`/api/quotes/${quote.id}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: emailTo.trim(), pdfBase64 }),
+      });
+      const data = await res.json();
+      if (res.status === 503) {
+        toast.error(t("quotes.sendEmailNotConfigured"));
+        return;
+      }
+      if (!res.ok) throw new Error(data.error);
+      if (data.status) {
+        setQuote({ ...quote, status: data.status });
+      }
+      toast.success(t("quotes.sendEmailSent", { email: data.to ?? emailTo }));
+      setEmailOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("common.error"));
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   return (
     <DashboardShell
       printClassName="quote-detail-print"
@@ -104,18 +194,33 @@ export default function QuoteDetailPage() {
             <Printer className="h-4 w-4" />
             {t("quotes.print")}
           </Button>
+          {locked ? null : (
           <Button variant="outline" className="w-full sm:w-auto print:hidden" asChild>
             <Link href={`/quotes/${quote.id}/edit`}>
               <Pencil className="h-4 w-4" />
               {t("common.edit")}
             </Link>
           </Button>
+          )}
           <Button variant="outline" className="w-full sm:w-auto print:hidden" asChild>
             <Link href={`/quotes/new?duplicate=${quote.id}`}>
               <Copy className="h-4 w-4" />
               {t("quotes.duplicate")}
             </Link>
           </Button>
+          {access.canLockQuotes ? (
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto no-print"
+            onClick={() => {
+              setEmailTo(quote.customer_email ?? "");
+              setEmailOpen(true);
+            }}
+          >
+            <Mail className="h-4 w-4" />
+            {t("quotes.sendEmail")}
+          </Button>
+          ) : null}
           <Button
             variant="outline"
             className="w-full sm:w-auto no-print"
@@ -129,7 +234,11 @@ export default function QuoteDetailPage() {
             className="w-full sm:w-auto no-print"
             onClick={async () => {
               try {
-                await exportQuoteExcel(quote);
+                const settings = await fetchAppSettings();
+                await exportQuoteExcel(
+                  quote,
+                  resolveCatalogThemeFromSettings(settings),
+                );
                 toast.success(t("quotes.excelDownloaded"));
               } catch {
                 toast.error(t("quotes.excelFailed"));
@@ -142,9 +251,96 @@ export default function QuoteDetailPage() {
         </div>
       }
     >
+      <div className="mb-4 flex flex-col gap-3 no-print">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5">
+            <QuoteStatusBadge status={quote.status} validUntil={quote.valid_until} />
+            <InfoHint text={t("help.quoteStatus")} label={t("help.aria")} />
+          </span>
+          {quote.status === "draft" ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void patchQuote({ action: "refresh_prices" })}
+              >
+                {t("quotes.refreshPrices")}
+              </Button>
+              <InfoHint text={t("help.refreshPrices")} label={t("help.aria")} />
+            </span>
+          ) : null}
+          {access.canLockQuotes && quote.status === "draft" ? (
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => void patchQuote({ status: "sent" })}
+            >
+              {t("quotes.markSent")}
+            </Button>
+          ) : null}
+          {access.canLockQuotes && quote.status === "sent" ? (
+            <>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => void patchQuote({ status: "accepted" })}
+              >
+                {t("quotes.markAccepted")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void patchQuote({ status: "rejected" })}
+              >
+                {t("quotes.markRejected")}
+              </Button>
+            </>
+          ) : null}
+          {access.canLockQuotes && locked ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void patchQuote({ status: "draft" })}
+            >
+              {t("quotes.reopenDraft")}
+            </Button>
+          ) : null}
+        </div>
+        {quote.prices_stale ? (
+          <p className="rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100">
+            {t("quotes.pricesStale")}
+          </p>
+        ) : null}
+        {locked ? (
+          <p className="inline-flex items-start gap-1.5 text-sm text-muted-foreground">
+            <InfoHint text={t("help.lockedQuote")} label={t("help.aria")} />
+            <span>{t("quotes.lockedHint")}</span>
+          </p>
+        ) : null}
+      </div>
+
       <div className="quote-print-header">
         <p className="text-lg font-semibold">{quoteLabel}</p>
         <p className="text-sm text-muted-foreground">{quote.customer_name}</p>
+        {[quote.customer_tax_id, quote.customer_address, quote.customer_email, quote.customer_phone]
+          .filter(Boolean)
+          .length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {[
+              quote.customer_tax_id
+                ? `${t("customers.taxId")}: ${quote.customer_tax_id}`
+                : null,
+              quote.customer_address,
+              quote.customer_email,
+              quote.customer_phone,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
         <p className="text-xs text-muted-foreground">
           {formatDate(quote.created_at)}
           {quote.valid_until
@@ -189,6 +385,32 @@ export default function QuoteDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("quotes.sendEmailTitle")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t("quotes.sendEmailHelp")}</p>
+          <div className="space-y-1.5">
+            <Label htmlFor="quote-email">{t("quotes.sendEmailTo")}</Label>
+            <Input
+              id="quote-email"
+              type="email"
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={() => void sendQuoteEmail()} disabled={sendingEmail || !emailTo.trim()}>
+              {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : t("quotes.sendEmail")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <QuoteExportModal
         quote={quote}

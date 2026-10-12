@@ -1,45 +1,94 @@
 import { defaultCurrencyForLocale, normalizeCurrency } from "@/lib/currency";
+import {
+  CATALOG_THEME_DEFAULT,
+  isCatalogThemePreset,
+  normalizeCatalogColors,
+} from "@/lib/catalog-theme";
 import { normalizeLocale } from "@/lib/i18n/types";
-import type { AppSettings } from "@/types";
+import type { AppSettings, CatalogColorPalette, CatalogThemePreset } from "@/types";
 
 const STORAGE_KEY = "ponudeapp-settings";
 
 const DEFAULTS: AppSettings = {
   logoDataUrl: null,
   companyName: "",
+  taxId: "",
+  address: "",
+  phone: "",
+  bankAccount: "",
+  stampDataUrl: null,
+  membersCanLockQuotes: false,
   locale: "sr",
   currency: defaultCurrencyForLocale("sr"),
+  catalogThemePreset: "default",
+  catalogColors: { ...CATALOG_THEME_DEFAULT },
 };
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
 }
 
+function parseCatalogTheme(parsed: Partial<AppSettings>): {
+  catalogThemePreset: CatalogThemePreset;
+  catalogColors: CatalogColorPalette;
+} {
+  const preset = isCatalogThemePreset(parsed.catalogThemePreset)
+    ? parsed.catalogThemePreset
+    : "default";
+  return {
+    catalogThemePreset: preset,
+    catalogColors: normalizeCatalogColors(
+      parsed.catalogColors,
+      CATALOG_THEME_DEFAULT,
+    ),
+  };
+}
+
 export function getAppSettingsLocal(): AppSettings {
-  if (!canUseStorage()) return { ...DEFAULTS };
+  if (!canUseStorage()) return { ...DEFAULTS, catalogColors: { ...CATALOG_THEME_DEFAULT } };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULTS };
+    if (!raw) return { ...DEFAULTS, catalogColors: { ...CATALOG_THEME_DEFAULT } };
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
     const locale = normalizeLocale(parsed.locale);
+    const theme = parseCatalogTheme(parsed);
     return {
       logoDataUrl:
         typeof parsed.logoDataUrl === "string" ? parsed.logoDataUrl : null,
       companyName:
         typeof parsed.companyName === "string" ? parsed.companyName : "",
+      taxId: typeof parsed.taxId === "string" ? parsed.taxId : "",
+      address: typeof parsed.address === "string" ? parsed.address : "",
+      phone: typeof parsed.phone === "string" ? parsed.phone : "",
+      bankAccount: typeof parsed.bankAccount === "string" ? parsed.bankAccount : "",
+      stampDataUrl:
+        typeof parsed.stampDataUrl === "string" ? parsed.stampDataUrl : null,
+      membersCanLockQuotes: parsed.membersCanLockQuotes === true,
       locale,
       currency:
         parsed.currency !== undefined
           ? normalizeCurrency(parsed.currency)
           : defaultCurrencyForLocale(locale),
+      ...theme,
     };
   } catch {
-    return { ...DEFAULTS };
+    return { ...DEFAULTS, catalogColors: { ...CATALOG_THEME_DEFAULT } };
   }
 }
 
 export function saveAppSettingsLocal(patch: Partial<AppSettings>): AppSettings {
-  const next = { ...getAppSettingsLocal(), ...patch };
+  const current = getAppSettingsLocal();
+  const next: AppSettings = {
+    ...current,
+    ...patch,
+    catalogColors: normalizeCatalogColors(
+      patch.catalogColors ?? current.catalogColors,
+      CATALOG_THEME_DEFAULT,
+    ),
+    catalogThemePreset: isCatalogThemePreset(patch.catalogThemePreset)
+      ? patch.catalogThemePreset
+      : current.catalogThemePreset,
+  };
   if (canUseStorage()) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }
@@ -67,8 +116,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
 export async function persistAppSettings(
   patch: Partial<AppSettings>,
 ): Promise<AppSettings> {
-  const local = { ...getAppSettingsLocal(), ...patch };
-  saveAppSettingsLocal(local);
+  const local = saveAppSettingsLocal(patch);
 
   try {
     const res = await fetch("/api/settings", {

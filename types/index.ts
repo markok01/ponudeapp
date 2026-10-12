@@ -1,4 +1,7 @@
 import type { Currency } from "@/lib/currency";
+import type { QuoteStatus } from "@/lib/quote-status";
+
+export type { QuoteStatus };
 
 export type { Currency };
 
@@ -19,12 +22,20 @@ export interface Product {
 export interface Quote {
   id: number;
   quote_number: string;
+  customer_id: number | null;
   customer_name: string;
+  customer_tax_id?: string | null;
+  customer_address?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
   note: string | null;
   valid_until: string | null;
   currency: Currency;
+  status: QuoteStatus;
   created_at: string;
   total: number;
+  /** Nacrt čiji snapshot cene više nije jednak trenutnom cenovniku. */
+  prices_stale?: boolean;
 }
 
 export interface QuoteItem {
@@ -78,6 +89,7 @@ export interface CreateQuoteItemInput {
 }
 
 export interface CreateQuoteInput {
+  customer_id?: number | null;
   customer_name: string;
   note?: string | null;
   valid_until?: string | null;
@@ -93,13 +105,59 @@ export interface QuoteLineDraft {
   qty: number;
 }
 
+export interface Customer {
+  id: number;
+  name: string;
+  tax_id: string | null;
+  address: string | null;
+  email: string | null;
+  phone: string | null;
+  quote_count: number;
+  created_at: string;
+}
+
+export interface CustomerInput {
+  name: string;
+  tax_id?: string | null;
+  address?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
 export type AppLocale = "sr" | "en";
+
+/** Boje cenovnika (UI + PDF/Excel export). */
+export interface CatalogColorPalette {
+  /** Pozadina reda brenda/kategorije */
+  brandBg: string;
+  brandText: string;
+  /** Pozadina zaglavlja kolona */
+  headerBg: string;
+  headerText: string;
+  /** Boja cene u tabeli */
+  price: string;
+  /** Boja ukupnog iznosa */
+  priceTotal: string;
+}
+
+export type CatalogThemePreset = "default" | "silbo" | "custom";
 
 export interface AppSettings {
   logoDataUrl: string | null;
   companyName: string;
+  taxId: string;
+  address: string;
+  phone: string;
+  bankAccount: string;
+  stampDataUrl: string | null;
+  /** Običan član sme da označi ponudu kao poslatu, prihvaćenu ili da je vrati u nacrt. */
+  membersCanLockQuotes: boolean;
   locale: AppLocale;
   currency: Currency;
+  /** Preset ili ručne boje cenovnika. */
+  catalogThemePreset: CatalogThemePreset;
+  /** Koristi se kad je preset = custom (inače se ignoriše pri resolve). */
+  catalogColors: CatalogColorPalette;
 }
 
 export type PriceListTemplate = "empty" | "simple" | "horeca";

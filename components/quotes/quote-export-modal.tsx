@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import type { QuoteWithItems } from "@/types";
 import { fetchAppSettings } from "@/lib/app-settings";
+import { resolveCatalogThemeFromSettings } from "@/lib/catalog-theme";
 import { useTranslations } from "@/lib/i18n/locale-provider";
 import { generateQuotePDF } from "@/utils/generate-quote-pdf";
 
@@ -51,6 +52,12 @@ export function QuoteExportModal({
         includeLogo: Boolean(settings.logoDataUrl),
         logoBase64: settings.logoDataUrl,
         companyName: settings.companyName || undefined,
+        companyTaxId: settings.taxId || undefined,
+        companyAddress: settings.address || undefined,
+        companyPhone: settings.phone || undefined,
+        companyBankAccount: settings.bankAccount || undefined,
+        stampBase64: settings.stampDataUrl,
+        catalogColors: resolveCatalogThemeFromSettings(settings),
       });
 
       toast.success(t("quotes.pdfDownloaded"));

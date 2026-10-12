@@ -1,9 +1,9 @@
 import type { Product } from "@/types";
 
 export const HORECA_BRAND_BG =
-  "bg-[var(--horeca-brand)] text-white";
+  "bg-[var(--horeca-brand)] text-[var(--horeca-brand-fg,#ffffff)]";
 export const HORECA_HEADER_BG =
-  "bg-[var(--horeca-header)] text-foreground";
+  "bg-[var(--horeca-header)] text-[var(--horeca-header-fg,var(--foreground))]";
 
 const horecaPriceFormatter = new Intl.NumberFormat("sr-RS", {
   minimumFractionDigits: 2,

@@ -134,6 +134,11 @@ export default function LoginPageClient() {
               />
               {t("auth.rememberMe")}
             </label>
+            <p className="text-right text-xs">
+              <Link href="/forgot-password" className="text-muted-foreground underline">
+                {t("auth.forgotPassword")}
+              </Link>
+            </p>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {t("auth.signIn")}

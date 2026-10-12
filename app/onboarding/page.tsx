@@ -255,6 +255,24 @@ export default function OnboardingPage() {
                 {t("onboarding.goProducts")}
               </Button>
             ) : null}
+            {step === 3 ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  void completeOnboarding("/quotes/new").catch((error) => {
+                    toast.error(
+                      error instanceof Error ? error.message : t("onboarding.completeFailed"),
+                    );
+                    setBusy(false);
+                  });
+                }}
+              >
+                {t("onboarding.goQuote")}
+              </Button>
+            ) : null}
             <Button type="button" variant="ghost" disabled={busy} onClick={() => void skip()}>
               {t("onboarding.skip")}
             </Button>

@@ -34,6 +34,8 @@ export async function deleteOrganizationAndData(organizationId: number): Promise
       [organizationId],
     );
     await conn.execute(`DELETE FROM quotes WHERE organization_id = ?`, [organizationId]);
+    await conn.execute(`DELETE FROM customers WHERE organization_id = ?`, [organizationId]);
+    await conn.execute(`DELETE FROM org_activity_log WHERE organization_id = ?`, [organizationId]);
     await conn.execute(`DELETE FROM products WHERE organization_id = ?`, [organizationId]);
     await conn.execute(`DELETE FROM price_lists WHERE organization_id = ?`, [organizationId]);
     await conn.execute(`DELETE FROM organization_invites WHERE organization_id = ?`, [

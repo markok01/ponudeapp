@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { formatSessionLocation } from "@/lib/session-client-info";
 import { useTranslations } from "@/lib/i18n/locale-provider";
@@ -137,7 +138,10 @@ export function AdminSessionsPanel() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Monitor className="h-4 w-4" />
-          {t("settings.sessionsTitle")}
+          <span className="inline-flex items-center gap-1.5">
+            {t("settings.sessionsTitle")}
+            <InfoHint text={t("help.devices")} label={t("help.aria")} />
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

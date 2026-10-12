@@ -5,6 +5,7 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   text: string;
+  attachments?: { filename: string; content: string }[];
 }
 
 export interface SendEmailResult {
@@ -95,6 +96,68 @@ export function inviteEmailContent(
   };
 }
 
+export function quoteEmailContent(input: {
+  companyName: string;
+  customerName: string;
+  quoteLabel: string;
+  locale?: EmailLocale;
+}) {
+  const sr = input.locale !== "en";
+  const company = input.companyName.trim() || "PonudeApp";
+  const title = sr ? `Ponuda ${input.quoteLabel}` : `Quote ${input.quoteLabel}`;
+  const html = `<!DOCTYPE html>
+<html lang="${sr ? "sr" : "en"}">
+<body style="margin:0;padding:24px;background:#f4f5f8;font-family:Arial,sans-serif;color:#1a1d23;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:28px;">
+    <tr><td>
+      <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">${escapeHtml(company)}</p>
+      <h1 style="margin:0 0 16px;font-size:20px;">${escapeHtml(title)}</h1>
+      <p style="margin:0 0 8px;">${sr ? "Poštovani," : "Hello,"}</p>
+      <p style="margin:0 0 8px;">${
+        sr
+          ? `u prilogu je ponuda ${escapeHtml(input.quoteLabel)} za ${escapeHtml(input.customerName)}.`
+          : `Please find quote ${escapeHtml(input.quoteLabel)} for ${escapeHtml(input.customerName)} attached.`
+      }</p>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  const text = sr
+    ? `${company}\nPonuda ${input.quoteLabel}\nU prilogu je PDF za ${input.customerName}.`
+    : `${company}\nQuote ${input.quoteLabel}\nThe PDF for ${input.customerName} is attached.`;
+  return {
+    subject: sr
+      ? `${company} — ponuda ${input.quoteLabel}`
+      : `${company} — quote ${input.quoteLabel}`,
+    html,
+    text,
+  };
+}
+
+export function passwordResetEmailContent(url: string, locale: EmailLocale = "sr") {
+  const sr = locale !== "en";
+  const title = sr ? "Nova lozinka" : "New password";
+  const html = emailLayout(
+    title,
+    `<p style="margin:0 0 8px;">Zatražili ste novu lozinku. Link važi jedan sat.</p>
+     <p style="margin:0 0 8px;color:#4b5563;">You asked for a new password. This link is valid for one hour.</p>
+     <p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Ako niste vi, ignorišite poruku. / If this wasn’t you, ignore this email.</p>`,
+    sr ? "Postavi lozinku" : "Set password",
+    url,
+  );
+  const text = [
+    "PonudeApp",
+    sr ? "Nova lozinka" : "New password",
+    url,
+    "Link važi jedan sat. Ako niste vi, ignorišite poruku.",
+  ].join("\n");
+  return {
+    subject: sr ? "Nova lozinka — PonudeApp" : "New password — PonudeApp",
+    html,
+    text,
+  };
+}
+
 export function isResendConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
@@ -126,6 +189,9 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       subject: input.subject,
       html: input.html,
       text: input.text,
+      ...(input.attachments?.length
+        ? { attachments: input.attachments }
+        : {}),
     }),
   });
 

@@ -3,6 +3,8 @@ export const PUBLIC_AUTH_PATHS = [
   "/login",
   "/register",
   "/verify-email",
+  "/forgot-password",
+  "/reset-password",
   "/invite",
 ] as const;
 

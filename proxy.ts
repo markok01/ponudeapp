@@ -21,6 +21,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/api/stripe/webhook") return true;
   if (pathname === "/api/settings") return true;
   if (pathname === "/api/health") return true;
+  if (pathname.startsWith("/api/cron/")) return true;
   if (pathname.startsWith("/icons/")) return true;
   if (pathname === "/favicon.ico") return true;
   return false;

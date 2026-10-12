@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencySelect } from "@/components/ui/currency-select";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Label } from "@/components/ui/label";
 import { fetchAppSettings, persistAppSettings } from "@/lib/app-settings";
 import { defaultCurrencyForLocale, normalizeCurrency, type Currency } from "@/lib/currency";
@@ -30,7 +31,10 @@ export function CurrencySettingsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("settings.currency")}</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5">
+          {t("settings.currency")}
+          <InfoHint text={t("help.currency")} label={t("help.aria")} />
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <p className="text-sm text-muted-foreground">{t("settings.currencyHelp")}</p>

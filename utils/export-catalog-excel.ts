@@ -1,6 +1,11 @@
 import ExcelJS from "exceljs";
-import type { Product } from "@/types";
+import type { CatalogColorPalette, Product } from "@/types";
 import { DEFAULT_CURRENCY, excelCurrencyNumFmt, type Currency } from "@/lib/currency";
+import {
+  CATALOG_THEME_DEFAULT,
+  hexToArgb,
+  normalizeCatalogColors,
+} from "@/lib/catalog-theme";
 import {
   catalogHeaderRowValues,
   catalogRowToExcelValues,
@@ -10,7 +15,9 @@ import { groupProductsByCategory } from "@/utils/catalog-display";
 export async function buildCatalogExcelBuffer(
   products: Product[],
   currency: Currency = DEFAULT_CURRENCY,
+  catalogColors?: CatalogColorPalette | null,
 ): Promise<ArrayBuffer> {
+  const theme = normalizeCatalogColors(catalogColors, CATALOG_THEME_DEFAULT);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Cenovnik");
   const moneyFmt = excelCurrencyNumFmt(currency);
@@ -18,22 +25,28 @@ export async function buildCatalogExcelBuffer(
   const groups = groupProductsByCategory(products);
 
   const headerRow = sheet.addRow(catalogHeaderRowValues());
-  headerRow.font = { bold: true };
+  headerRow.font = {
+    bold: true,
+    color: { argb: hexToArgb(theme.headerText) },
+  };
   headerRow.fill = {
     type: "pattern",
     pattern: "solid",
-    fgColor: { argb: "FFD4CCE8" },
+    fgColor: { argb: hexToArgb(theme.headerBg) },
   };
 
   for (const group of groups) {
     const brandRow = sheet.addRow([group.groupLabel]);
     const brandRowNumber = brandRow.number;
     sheet.mergeCells(brandRowNumber, 1, brandRowNumber, catalogHeaderRowValues().length);
-    brandRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    brandRow.font = {
+      bold: true,
+      color: { argb: hexToArgb(theme.brandText) },
+    };
     brandRow.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FFA89BC9" },
+      fgColor: { argb: hexToArgb(theme.brandBg) },
     };
 
     for (const product of group.products) {
@@ -48,6 +61,7 @@ export async function buildCatalogExcelBuffer(
         }),
       );
       dataRow.getCell(4).numFmt = moneyFmt;
+      dataRow.getCell(4).font = { color: { argb: hexToArgb(theme.price) } };
     }
   }
 
@@ -67,8 +81,9 @@ export async function downloadCatalogExcel(
   products: Product[],
   filename = "cenovnik.xlsx",
   currency: Currency = DEFAULT_CURRENCY,
+  catalogColors?: CatalogColorPalette | null,
 ) {
-  const buffer = await buildCatalogExcelBuffer(products, currency);
+  const buffer = await buildCatalogExcelBuffer(products, currency, catalogColors);
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });

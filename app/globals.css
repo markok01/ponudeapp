@@ -1,73 +1,77 @@
 @import "tailwindcss";
 
-/* ─── Premium pastel design tokens ─── */
+/* ─── Premium minimal design tokens (Montserrat unchanged) ─── */
 :root {
-  --background: #f7f8fc;
-  --foreground: #2c3345;
+  --background: #f4f5f7;
+  --foreground: #14171f;
   --card: #ffffff;
-  --card-foreground: #2c3345;
+  --card-foreground: #14171f;
   --popover: #ffffff;
-  --popover-foreground: #2c3345;
-  --primary: #5b8def;
+  --popover-foreground: #14171f;
+  --primary: #1f3a5f;
   --primary-foreground: #ffffff;
-  --secondary: #eef1f8;
-  --secondary-foreground: #3d4659;
-  --muted: #f0f2f7;
-  --muted-foreground: #6b7289;
-  --accent: #e8f0fe;
-  --accent-foreground: #3b5bdb;
-  --destructive: #e85d6a;
+  --secondary: #eceef2;
+  --secondary-foreground: #2a3140;
+  --muted: #eef0f3;
+  --muted-foreground: #667085;
+  --accent: #e8edf4;
+  --accent-foreground: #1f3a5f;
+  --destructive: #c23b4a;
   --destructive-foreground: #ffffff;
-  --success: #3d9b7a;
+  --success: #1f7a5c;
   --success-foreground: #ffffff;
-  --border: #e4e8f2;
-  --input: #dce2ee;
-  --ring: #7ba3f5;
-  --radius: 0.875rem;
-  --shadow-soft: 0 1px 2px rgba(44, 51, 69, 0.04), 0 8px 24px rgba(91, 141, 239, 0.06);
-  --shadow-card: 0 1px 3px rgba(44, 51, 69, 0.05), 0 12px 32px rgba(44, 51, 69, 0.06);
-  --glass: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.85);
-  --sidebar: rgba(255, 255, 255, 0.78);
-  --navbar: rgba(255, 255, 255, 0.82);
+  --border: #e2e5eb;
+  --input: #d8dde6;
+  --ring: #1f3a5f;
+  --radius: 0.625rem;
+  --shadow-soft: 0 1px 2px rgba(20, 23, 31, 0.04);
+  --shadow-card: 0 1px 2px rgba(20, 23, 31, 0.04), 0 0 0 1px rgba(20, 23, 31, 0.02);
+  --glass: #ffffff;
+  --glass-border: #e2e5eb;
+  --sidebar: #fafbfc;
+  --navbar: rgba(250, 251, 252, 0.92);
   --price: #3b5bdb;
   --price-total: #2f4eb8;
   --horeca-brand: #a89bc9;
+  --horeca-brand-fg: #ffffff;
   --horeca-header: #d4cce8;
+  --horeca-header-fg: #14171f;
 }
 
 .dark {
-  --background: #1a1d26;
-  --foreground: #e8ecf4;
-  --card: #232733;
-  --card-foreground: #e8ecf4;
-  --popover: #262b38;
-  --popover-foreground: #e8ecf4;
-  --primary: #7ba3f5;
-  --primary-foreground: #1a1d26;
-  --secondary: #2d3342;
-  --secondary-foreground: #c5cce0;
-  --muted: #2a2f3d;
-  --muted-foreground: #9aa3b8;
-  --accent: #2e3a52;
-  --accent-foreground: #a8c4f8;
-  --destructive: #f0717f;
-  --destructive-foreground: #1a1d26;
-  --success: #5cb896;
-  --success-foreground: #1a1d26;
-  --border: #353b4a;
-  --input: #3d4455;
-  --ring: #7ba3f5;
-  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(123, 163, 245, 0.08);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.25), 0 12px 32px rgba(0, 0, 0, 0.2);
-  --glass: rgba(35, 39, 51, 0.85);
-  --glass-border: rgba(53, 59, 74, 0.9);
-  --sidebar: rgba(30, 34, 44, 0.92);
-  --navbar: rgba(30, 34, 44, 0.88);
+  --background: #0f1115;
+  --foreground: #eceef2;
+  --card: #171a21;
+  --card-foreground: #eceef2;
+  --popover: #1c2028;
+  --popover-foreground: #eceef2;
+  --primary: #9db4d4;
+  --primary-foreground: #0f1115;
+  --secondary: #22262f;
+  --secondary-foreground: #c8ced9;
+  --muted: #1c2028;
+  --muted-foreground: #8b93a3;
+  --accent: #222936;
+  --accent-foreground: #c5d4e8;
+  --destructive: #e57480;
+  --destructive-foreground: #0f1115;
+  --success: #4cae8c;
+  --success-foreground: #0f1115;
+  --border: #2a303b;
+  --input: #343b48;
+  --ring: #9db4d4;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --glass: #171a21;
+  --glass-border: #2a303b;
+  --sidebar: #12151b;
+  --navbar: rgba(18, 21, 27, 0.92);
   --price: #9ebaf7;
   --price-total: #c5d8fc;
   --horeca-brand: #7a6d96;
+  --horeca-brand-fg: #ffffff;
   --horeca-header: #4a4558;
+  --horeca-header-fg: #eceef2;
 }
 
 @theme inline {
@@ -334,19 +338,13 @@ body {
   }
 }
 
-/* App shell backgrounds */
+/* App shell backgrounds — calm, no pastel wash */
 .dashboard-bg {
-  background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(91, 141, 239, 0.09), transparent 50%),
-    radial-gradient(ellipse 60% 40% at 95% 5%, rgba(167, 182, 230, 0.12), transparent 45%),
-    var(--background);
+  background: var(--background);
 }
 
 .dark .dashboard-bg {
-  background:
-    radial-gradient(ellipse 70% 45% at 15% -5%, rgba(123, 163, 245, 0.12), transparent 50%),
-    radial-gradient(ellipse 50% 35% at 90% 10%, rgba(120, 140, 200, 0.08), transparent 40%),
-    var(--background);
+  background: var(--background);
 }
 
 .glass-panel {
@@ -354,14 +352,72 @@ body {
   border-color: var(--glass-border);
 }
 
-/* iOS-style app icon tile */
+/* App icon tile — restrained navy */
 .app-logo-tile {
-  background: linear-gradient(145deg, #8eb5f7 0%, #5b8def 48%, #4a7de8 100%);
+  background: linear-gradient(145deg, #2a4a73 0%, #1f3a5f 55%, #182e4c 100%);
 }
 
 .dark .app-logo-tile {
-  background: linear-gradient(145deg, #9ec0f8 0%, #6b94f0 50%, #5b8def 100%);
-  box-shadow: 0 2px 14px rgba(91, 141, 239, 0.25);
+  background: linear-gradient(145deg, #3d5a80 0%, #2a4a73 55%, #1f3a5f 100%);
+  box-shadow: none;
+}
+
+/* Inline info hint (ⓘ) */
+.info-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.info-hint__btn {
+  display: inline-flex;
+  height: 1.125rem;
+  width: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklab, var(--border) 90%, var(--foreground));
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: help;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.info-hint__btn:hover,
+.info-hint__btn:focus-visible,
+.info-hint[data-open="true"] .info-hint__btn {
+  color: var(--foreground);
+  border-color: color-mix(in oklab, var(--foreground) 28%, var(--border));
+  background: var(--muted);
+  outline: none;
+}
+
+.info-hint__panel {
+  position: absolute;
+  z-index: 50;
+  left: 50%;
+  bottom: calc(100% + 0.4rem);
+  width: max-content;
+  max-width: min(16.5rem, calc(100vw - 2rem));
+  transform: translateX(-50%);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: var(--shadow-card);
+  pointer-events: none;
+}
+
+.info-hint__panel[data-side="bottom"] {
+  bottom: auto;
+  top: calc(100% + 0.4rem);
 }
 
 /* Mobile drawer — GPU transform, bez blur overlay-a */
