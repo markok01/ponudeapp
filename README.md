@@ -104,7 +104,7 @@ Po potrebi: Stripe, Resend, `PDF_CONVERTER_*`, `SUPERADMIN_EMAILS`, `CRON_SECRET
 ### Health alarm (baza / PDF converter)
 
 1. Vercel: `CRON_SECRET`, `HEALTH_ALERT_EMAIL` i/ili `SLACK_WEBHOOK_URL` (+ Resend za mail)
-2. Cron u `vercel.json`: svakih sat vremena `/api/cron/health` (Bearer `CRON_SECRET`; na Pro planu možeš `*/5 * * * *`)
+2. Cron u `vercel.json`: jednom dnevno u 08:00 UTC `/api/cron/health` (Hobby limit; Bearer `CRON_SECRET`; na Pro planu možeš `0 * * * *`)
 3. Ručno: `curl -H "Authorization: Bearer $CRON_SECRET" https://<domen>/api/cron/health`
 4. Alarm posle 2 uzastopna pada; cooldown 30 min; oporavak šalje „ponovo radi“
 
