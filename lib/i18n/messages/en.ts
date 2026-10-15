@@ -52,7 +52,7 @@ export const messagesEn: Messages = {
   },
   home: {
     title: "Home",
-    description: "Workspace for price lists, customers, and quotes",
+    description: "Price lists, customers, and quotes — in one place",
     productsTitle: "Products",
     productsDesc: "Browse and edit the active price list.",
     uploadTitle: "Upload price list",

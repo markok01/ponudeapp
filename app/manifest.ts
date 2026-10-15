@@ -4,13 +4,13 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "PonudeApp — Cenovnici i ponude",
     short_name: "PonudeApp",
-    description: "Premium alat za cenovnike i poslovne ponude",
+    description: "Cenovnici, kupci i ponude — na jednom mestu",
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
-    background_color: "#f7f8fc",
-    theme_color: "#5b8def",
+    background_color: "#f4f5f7",
+    theme_color: "#1f3a5f",
     lang: "sr",
     categories: ["business", "productivity"],
     icons: [

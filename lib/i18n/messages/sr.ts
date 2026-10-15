@@ -50,7 +50,7 @@ export const messagesSr = {
   },
   home: {
     title: "Početna",
-    description: "Radni prostor za cenovnike, kupce i ponude",
+    description: "Cenovnici, kupci i ponude — na jednom mestu",
     productsTitle: "Proizvodi",
     productsDesc: "Pregledajte i uređujte aktivni cenovnik.",
     uploadTitle: "Upload cenovnika",
